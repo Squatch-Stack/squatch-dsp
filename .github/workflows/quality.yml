@@ -1,0 +1,53 @@
+# SPDX-License-Identifier: MIT
+# Every pull request and push: complexity limits, shell scripts, and (on pull requests) commit
+# subjects and size. The limits are in CONTRIBUTING.md; nothing here installs anything unpinned.
+name: Quality
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  complexity:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install lizard (pinned by hash)
+        run: python3 -m pip install --user --require-hashes --no-deps -r tools/requirements-ci.txt
+      - name: Complexity, length and parameters per function (make lint)
+        run: PATH="$HOME/.local/bin:$PATH" make lint
+
+  shell:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: shellcheck every shell script (by extension or shebang)
+        run: |
+          mapfile -t scripts < <(git ls-files | while read -r f; do
+            case "$f" in *.sh) echo "$f"; continue ;; esac
+            head -n1 -- "$f" 2>/dev/null | grep -qE '^#!.*\b(ba|da|k)?sh\b' && echo "$f"
+          done)
+          echo "${#scripts[@]} shell scripts"
+          [ "${#scripts[@]}" -eq 0 ] || shellcheck "${scripts[@]}"
+
+  pull-request:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Commit subjects and size (tools/pr-shape)
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+          LABELS: ${{ join(github.event.pull_request.labels.*.name, ' ') }}
+        run: |
+          args=()
+          for l in $LABELS; do args+=(--label "$l"); done
+          python3 tools/pr-shape "$BASE" "$HEAD" "${args[@]}"

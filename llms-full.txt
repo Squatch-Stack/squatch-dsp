@@ -7,10 +7,13 @@ Every file linked from [llms.txt](llms.txt), inlined in the same order (director
 ## Contents
 
 - README.md (Start here: squatch-dsp)
+- CONTRIBUTING.md (Start here: Contributing to squatch-dsp)
 - ROADMAP.md (Start here: squatch-dsp roadmap)
+- .github/pull_request_template.md (Docs: .github/pull_request_template.md)
 - blocks/tuner/README.md (Docs: Squatch Tuner)
 - blocks/tuner/RESULTS.md (Docs: Squatch Tuner: measured results)
 - .github/workflows/ci.yml (Build and run: .github/workflows/ci.yml)
+- .github/workflows/quality.yml (Build and run: .github/workflows/quality.yml)
 - Makefile (Build and run: Makefile)
 - blocks/tuner/results/perf.md (Optional: blocks/tuner/results/perf.md)
 - blocks/tuner/results/poly.md (Optional: blocks/tuner/results/poly.md)
@@ -136,6 +139,75 @@ If this is useful to you, you can support its development through
 MIT, © 2026 Squatch Stack, for the whole repository, the tuner included. See [LICENSE](LICENSE).
 
 ================================================================================
+FILE: CONTRIBUTING.md    [Start here: Contributing to squatch-dsp]
+================================================================================
+
+<!-- SPDX-License-Identifier: MIT -->
+# Contributing to squatch-dsp
+
+Thank you for helping. Every change comes in as a pull request and is reviewed before it lands.
+This page says what belongs here, how to shape a pull request, and what the checks look at.
+
+## What belongs here
+
+squatch-dsp is a **library**: a real-time sound engine in C++17. It holds:
+
+- the block core (`Block`, `Arena`, parameters, control contracts) and the blocks built on it;
+- their tests, references and golden renders, and the benchmark;
+- the Squatch Tuner's source (`blocks/tuner/`, also published on its own as squatch-tuner);
+- thin reference hosts that show the library in use (the web demo, plugin adapters).
+
+It does not hold applications, products, device firmware, bench scripts or anything that needs
+an account, a key or a download to build. If you are unsure whether something fits, open an
+issue first.
+
+## A good pull request
+
+- **One change.** A fix, a feature, a refactor or a documentation change, not several. Refactors
+  go in their own pull request, ahead of the change that needs them.
+- **Small.** Aim for under 400 changed lines. Over 1000 needs a reason in the description (a
+  maintainer then adds the `large-change` label); generated files are not counted.
+- **Tested.** A behaviour change comes with a test that fails without it. A new block follows
+  "Adding a block" in the [README](README.md).
+- **Checked locally.** `make ci` runs what CI runs: `lint headers lib test`.
+- **Commit subjects** follow [Conventional Commits](https://www.conventionalcommits.org/):
+  `type(scope): summary`, at most 72 characters, with type one of `feat fix docs chore ci build
+  test refactor perf style revert`. Say why in the body when it is not obvious. No `fixup!`,
+  `squash!` or `WIP` commits in the final branch.
+
+## What the checks look at
+
+On every pull request (`.github/workflows/quality.yml` and `ci.yml`):
+
+| Check | Limit |
+|---|---|
+| Cyclomatic complexity per function (`make lint`, lizard) | at most 10 |
+| Function length | at most 60 lines |
+| Parameters per function | at most 5 |
+| Shell scripts (shellcheck) | no findings |
+| Commit subjects (`tools/pr-shape`) | the format above |
+| Pull request size (`tools/pr-shape`) | notice over 400 lines, fails over 1000 without `large-change` |
+| Standalone headers, library, tests | pass under ASan + UBSan and TSan, with the real-time allocation and lock watch |
+
+Nothing here is lowered to make a pull request pass: fix the code instead.
+
+## Your machine
+
+This repository installs nothing on your machine and changes no configuration: there are no hooks
+to install, no package managers and no downloads at build time. The checks above run in CI; run
+`make ci` yourself when you want them locally (it needs a C++17 compiler, make, and `lizard` for
+the lint step).
+
+## How a pull request lands
+
+squatch-dsp is published from a development tree that also holds work that is not public yet.
+Once a pull request is approved, a maintainer applies it there and it comes back here in the
+next publish, credited to you. The `EXPORTED` file lists every published file; a pull request
+may edit them, and CI reports which, but it only enforces `EXPORTED` on `main`.
+
+Contributions are accepted under the MIT licence of this repository.
+
+================================================================================
 FILE: ROADMAP.md    [Start here: squatch-dsp roadmap]
 ================================================================================
 
@@ -195,6 +267,26 @@ come first (guitar); stereo arrives with the time-based effects.
 - A small FFT of our own for convolution, or a vendored one: decided by measurement.
 - Oversampling for the drives, 2x or 4x per block: measured for aliasing against CPU.
 - The parameter-smoothing policy, and the control map for MIDI.
+
+================================================================================
+FILE: .github/pull_request_template.md    [Docs: .github/pull_request_template.md]
+================================================================================
+
+<!-- SPDX-License-Identifier: MIT -->
+<!-- One change per pull request. See CONTRIBUTING.md. -->
+
+## What and why
+
+<!-- What this changes, and why it is needed. Link the issue if there is one. -->
+
+## How it was checked
+
+<!-- The test that covers it (and fails without it), and anything measured or listened to. -->
+
+- [ ] One change: no unrelated edits, refactors in their own pull request
+- [ ] Under 400 changed lines, or the reason it cannot be split is given above
+- [ ] `make ci` passes (lint, headers, library, tests)
+- [ ] Commit subjects are `type(scope): summary`, at most 72 characters
 
 ================================================================================
 FILE: blocks/tuner/README.md    [Docs: Squatch Tuner]
@@ -649,8 +741,8 @@ FILE: .github/workflows/ci.yml    [Build and run: .github/workflows/ci.yml]
 
 ```yaml
 # SPDX-License-Identifier: MIT
-# Every push and pull request: published files are unedited, and the complexity limits, the
-# standalone header check, the library and the sanitizer tests all pass.
+# Every push and pull request: the standalone header check, the library and the sanitizer tests
+# pass; on pushes (main), published files match EXPORTED. Complexity is in quality.yml.
 name: CI
 on:
   push:
@@ -664,14 +756,78 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Published files match EXPORTED (edit upstream, not here)
+      - name: Published files match EXPORTED (enforced on main)
+        if: github.event_name == 'push'
         run: python3 tools/export-public dsp --verify .
+      - name: Published files this pull request edits (applied upstream on merge)
+        if: github.event_name == 'pull_request'
+        run: python3 tools/export-public dsp --verify . || true
       - name: Headers, library and tests (ASan + UBSan, TSan)
         run: |
           # ThreadSanitizer cannot map its shadow memory with the kernel's default 32 bits of
           # mmap randomisation on this image.
           sudo sysctl -w vm.mmap_rnd_bits=28
           make headers lib test CXX=clang++
+```
+
+================================================================================
+FILE: .github/workflows/quality.yml    [Build and run: .github/workflows/quality.yml]
+================================================================================
+
+```yaml
+# SPDX-License-Identifier: MIT
+# Every pull request and push: complexity limits, shell scripts, and (on pull requests) commit
+# subjects and size. The limits are in CONTRIBUTING.md; nothing here installs anything unpinned.
+name: Quality
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  complexity:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install lizard (pinned by hash)
+        run: python3 -m pip install --user --require-hashes --no-deps -r tools/requirements-ci.txt
+      - name: Complexity, length and parameters per function (make lint)
+        run: PATH="$HOME/.local/bin:$PATH" make lint
+
+  shell:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: shellcheck every shell script (by extension or shebang)
+        run: |
+          mapfile -t scripts < <(git ls-files | while read -r f; do
+            case "$f" in *.sh) echo "$f"; continue ;; esac
+            head -n1 -- "$f" 2>/dev/null | grep -qE '^#!.*\b(ba|da|k)?sh\b' && echo "$f"
+          done)
+          echo "${#scripts[@]} shell scripts"
+          [ "${#scripts[@]}" -eq 0 ] || shellcheck "${scripts[@]}"
+
+  pull-request:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Commit subjects and size (tools/pr-shape)
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+          LABELS: ${{ join(github.event.pull_request.labels.*.name, ' ') }}
+        run: |
+          args=()
+          for l in $LABELS; do args+=(--label "$l"); done
+          python3 tools/pr-shape "$BASE" "$HEAD" "${args[@]}"
 ```
 
 ================================================================================
@@ -1265,3 +1421,5 @@ FILE: tools/    [Optional: tools/]
 Directory listing (tracked files):
 
 - tools/export-public
+- tools/pr-shape
+- tools/requirements-ci.txt

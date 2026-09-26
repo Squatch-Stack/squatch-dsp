@@ -1,0 +1,73 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: MIT
+"""The shape of a branch against its base: commit subjects and size. Standard library only.
+
+    tools/pr-shape BASE [HEAD] [--label NAME ...]
+
+Fails when a commit subject is not `type(scope): summary` (Conventional Commits, at most 72
+characters) or is a fixup!/squash!/WIP commit, and when the branch changes more than 1000 lines
+without the `large-change` label. Over 400 lines it prints a notice. Generated files do not count.
+The same limits are in CONTRIBUTING.md.
+"""
+import argparse
+import fnmatch
+import re
+import subprocess
+import sys
+
+TYPES = "feat|fix|docs|chore|ci|build|test|refactor|perf|style|revert"
+SUBJECT = re.compile(rf"^(?:{TYPES})(?:\([a-z0-9._/-]+\))?!?: \S.*$")
+NOTICE_LINES, MAX_LINES = 400, 1000
+GENERATED = ["EXPORTED", "llms.txt", "llms-full.txt", "hosts/clap/generated/*", "tests/golden/*",
+             "include/squatch/dsp/contracts/*"]
+
+
+def git(*args):
+    return subprocess.run(["git", *args], check=True, capture_output=True, text=True).stdout
+
+
+def subject_problems(base, head):
+    problems = []
+    for line in git("log", "--no-merges", "--format=%h %s", f"{base}..{head}").splitlines():
+        sha, subject = line.split(" ", 1)
+        if subject.startswith(("fixup!", "squash!", "WIP", "wip")):
+            problems.append(f"{sha}: squash this commit before review: {subject!r}")
+        elif not SUBJECT.match(subject):
+            problems.append(f"{sha}: subject is not `type(scope): summary` ({TYPES}): {subject!r}")
+        elif len(subject) > 72:
+            problems.append(f"{sha}: subject is {len(subject)} characters (at most 72)")
+    return problems
+
+
+def changed_lines(base, head):
+    """Lines added plus removed between the merge base and head, generated files left out."""
+    total = 0
+    for line in git("diff", "--numstat", f"{base}...{head}").splitlines():
+        added, removed, path = line.split("\t", 2)
+        if added == "-" or any(fnmatch.fnmatch(path, g) for g in GENERATED):
+            continue  # binary, or generated
+        total += int(added) + int(removed)
+    return total
+
+
+def main(argv):
+    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap.add_argument("base")
+    ap.add_argument("head", nargs="?", default="HEAD")
+    ap.add_argument("--label", action="append", default=[], help="a label on the pull request")
+    a = ap.parse_args(argv)
+    problems = subject_problems(a.base, a.head)
+    lines = changed_lines(a.base, a.head)
+    if lines > MAX_LINES and "large-change" not in a.label:
+        problems.append(f"{lines} changed lines (over {MAX_LINES}): split it, or give the reason in the "
+                        "description and a maintainer adds the `large-change` label")
+    elif lines > NOTICE_LINES:
+        print(f"notice: {lines} changed lines; under {NOTICE_LINES} reviews best")
+    for p in problems:
+        print(f"  {p}")
+    print(f"pr-shape: {'FAIL' if problems else 'PASS'} ({lines} changed lines)")
+    return 1 if problems else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

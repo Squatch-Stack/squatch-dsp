@@ -1,8 +1,11 @@
-# Written by tools/export-public from the squatch-dsp development tree at c6714d383e8e0fa2bdf5f2ffd861b746a1c86012 (.github/FUNDING.yml only).
+# Written by tools/export-public from the squatch-dsp development tree at 4abd1023456855aa921595840445d8a94086312d (CONTRIBUTING.md, .github/pull_request_template.md, .github/workflows/quality.yml, .github/workflows/ci.yml, tools/pr-shape, tools/requirements-ci.txt only).
 # Do not edit these files here: change them upstream and export again (see the README).
 b1f7ed26a41e8cc4072e6ff565f628c0ee6445997f78e28eb3e06d67ca7a3bb8  .github/FUNDING.yml
-d4728b11d5f502d86ef85c8cba5e687260390f47d7b8c3e5fcc9d525b9d7aaaa  .github/workflows/ci.yml
+460854544017d09a7e295e80769fef1356e2f55ec22bf34c3fee1d812347c60a  .github/pull_request_template.md
+6a8fbd189439b3e2cea0f58f2e846c843441ee80d7a775bb5b90e011975ec095  .github/workflows/ci.yml
+8f3aede6e6c1df180d397ec99c1051a7091ff017952716a5b1db4659118e3b35  .github/workflows/quality.yml
 962d32493a040457f9226e47062750f325cafd7e24d9fbec32d3de6450635266  .gitignore
+69d690071be59e8d707001ab86f0e57d82757aa3c3e72bf98185f73604f5af16  CONTRIBUTING.md
 d2918130f1ac9048e1c5b9ab4a9f2718706537081f2affc3e68104a69ee873c4  LICENSE
 81ef7585b1dee0946137d10a69619d2bda526bbbd163073812985cf7fd3af240  Makefile
 d8c3541a5bb7d24556cca98893085322238f7dec0e6047171feb2580153dccfd  README.md
@@ -113,3 +116,5 @@ bcb427c20d04f41c774e5b29339e988f5882c24dea94b8a97db64663e3872228  tests/test_gat
 a79e02d512e00ffdc1d23aa8cffed14bff8ea9e0d6ddc0c1b749a4001b5071d8  tests/test_rt.cpp
 e892e7b43f7b503a41451a90529c28d30c25e870fb7f24167262463ab5716d36  tests/test_tuner.cpp
 731ea2f4501b0391a6d5a42d710d38351e2e83ec9a0abc88f042007538eb22b9  tools/export-public
+3b2b931e936c0e27806a05a185b898e7d6b6030d75fdd5b1ec6423aa75392e25  tools/pr-shape
+060430d3b99e9ee5b5718fc75576353c5ac6555f1f628604c513a244845e017e  tools/requirements-ci.txt
