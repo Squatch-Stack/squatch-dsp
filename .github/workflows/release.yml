@@ -261,4 +261,5 @@ jobs:
           NOTES
           flags=(--draft --verify-tag --title "Squatch DSP $TAG" --notes-file notes.md)
           case "$TAG" in *-*) flags+=(--prerelease);; esac
-          gh release create "$TAG" dist/* "${flags[@]}"
+          # This job has no checkout, so name the repository: gh cannot infer it from a git remote here.
+          gh release create "$TAG" dist/* --repo "$GITHUB_REPOSITORY" "${flags[@]}"

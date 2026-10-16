@@ -1,10 +1,10 @@
-# Written by tools/export-public from the squatch-dsp development tree at 5c5c9d9c27e037652f018974e14c57b11768053e (hosts/jack/jack_session.hpp only).
+# Written by tools/export-public from the squatch-dsp development tree at 42674e9a714a2eba86fc47e3281e7584127a93c9 (.github/workflows/release.yml only).
 # Do not edit these files here: change them upstream and export again (see the README).
 b1f7ed26a41e8cc4072e6ff565f628c0ee6445997f78e28eb3e06d67ca7a3bb8  .github/FUNDING.yml
 b2b506c683f241ac98479e8ae7656cc099f4bacfd3f1360b4330d7a666f72db5  .github/pull_request_template.md
 6a8fbd189439b3e2cea0f58f2e846c843441ee80d7a775bb5b90e011975ec095  .github/workflows/ci.yml
 8f3aede6e6c1df180d397ec99c1051a7091ff017952716a5b1db4659118e3b35  .github/workflows/quality.yml
-4fac08a59bb4cb661e73a836f4f6ec68751f3af38c73a86e2dabf42abaf8e91e  .github/workflows/release.yml
+e9d0006f4c1b88e50d58717320f8bc16ad37b393db6792db943c2b58507754fa  .github/workflows/release.yml
 69d690071be59e8d707001ab86f0e57d82757aa3c3e72bf98185f73604f5af16  CONTRIBUTING.md
 d2918130f1ac9048e1c5b9ab4a9f2718706537081f2affc3e68104a69ee873c4  LICENSE
 4b5ee9e28af076609250b184a9486c3ae3ac270f09484c806d506374ade07b38  Makefile
