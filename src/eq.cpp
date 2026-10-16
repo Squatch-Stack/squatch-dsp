@@ -1,32 +1,17 @@
 // SPDX-License-Identifier: MIT
+#include <cmath>
 #include <squatch/dsp/blocks/eq.hpp>
 
 namespace squatch::dsp {
-namespace {
-
-const ParamDesc kParams[] = {
-    {Eq::LowFreq, "Low freq", "Hz", 20.0f, 1000.0f, 100.0f, 20.0f},
-    {Eq::LowGain, "Low gain", "dB", -18.0f, 18.0f, 0.0f, 20.0f},
-    {Eq::MidFreq, "Mid freq", "Hz", 100.0f, 10000.0f, 1000.0f, 20.0f},
-    {Eq::MidGain, "Mid gain", "dB", -18.0f, 18.0f, 0.0f, 20.0f},
-    {Eq::MidQ, "Mid Q", "", 0.1f, 10.0f, 0.7f, 20.0f},
-    {Eq::HighFreq, "High freq", "Hz", 1000.0f, 20000.0f, 5000.0f, 20.0f},
-    {Eq::HighGain, "High gain", "dB", -18.0f, 18.0f, 0.0f, 20.0f},
-};
-static_assert(sizeof(kParams) / sizeof(kParams[0]) == Eq::kCount, "one descriptor per parameter");
-
-}  // namespace
-
-Span<const ParamDesc> Eq::params() { return kParams; }
 
 Eq::Eq() {
-  for (const ParamDesc& d : kParams) p_[d.id].jump(d.def);
+  for (int k = 0; k < kParamCount; ++k) p_[k].jump(kParams[k].def);
   design();
 }
 
 void Eq::prepare(const Setup& s, Arena&) {
   sampleRate_ = s.sampleRate;
-  for (const ParamDesc& d : kParams) p_[d.id].prepare(s.sampleRate, d.smoothMs);
+  for (int k = 0; k < kParamCount; ++k) p_[k].prepare(s.sampleRate, kParams[k].smoothMs);
   design();
   reset();
 }
@@ -47,8 +32,18 @@ void Eq::reset() {
 }
 
 void Eq::set(ParamId id, float value) {
-  if (id >= kCount) return;
+  if (id >= kParamCount) return;
   p_[id].setTarget(kParams[id].clamp(value));
+}
+
+float Eq::get(ParamId id) const { return id < kParamCount ? p_[id].target() : NAN; }
+
+// A band's envelope decays with time constant Q / (pi f0); shelves have Q = 1/sqrt(2).
+int Eq::tail() const {
+  const double pi = 3.14159265358979323846;
+  const double shelf = kShelfQ / (pi * std::fmin(p_[LowFreq].target(), p_[HighFreq].target()));
+  const double peak = p_[MidQ].target() / (pi * p_[MidFreq].target());
+  return static_cast<int>(std::ceil(14.0 * std::fmax(shelf, peak) * sampleRate_));
 }
 
 bool Eq::smoothing() const {

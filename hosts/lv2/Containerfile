@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: MIT
+# Build and lint image for the LV2 plugins: Debian 12 (glibc 2.36), so the .so files load on
+# Bookworm and on anything newer (the Pi runs Trixie). Nothing from here ends up in the plugins
+# except libc: libstdc++ and libgcc are linked statically.
+FROM debian:bookworm-slim
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends g++ make lv2-dev lilv-utils sordi serdi binutils ca-certificates \
+ && rm -rf /var/lib/apt/lists/*

@@ -123,7 +123,7 @@ void realStrums(const std::string& path, int trials) {
   Audio a;
   if (!readWav(path, a)) return;
   const OpenStrings open = findOpenStrings(a, PolyConfig{});
-  std::printf("\n### Real strums (%d), open strings from %s mixed with 0-40 ms spread and 0 to -6 dB levels:\n"
+  std::printf("\n## Real strums (%d)\n\nOpen strings from %s mixed with 0-40 ms spread and 0 to -6 dB levels;\n"
               "poly reading minus the mono reading of the same pluck alone, RMS c (p95 |diff|) [valid %%]\n\n"
               "| string | open-string pitch (mono, 1.2 s) | 250 ms | 500 ms | 1000 ms |\n|---|---|---|---|---|\n",
               trials, path.substr(path.find_last_of('/') + 1).c_str());

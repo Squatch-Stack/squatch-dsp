@@ -1,0 +1,262 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: MIT
+"""Apple signing, notarization and verification for release builds, behind a check that skips cleanly.
+
+    tools/release-signing check [--installer] [--github-output FILE]
+    tools/release-signing keychain [--installer]
+    tools/release-signing sign [--entitlements FILE] PATH...
+    tools/release-signing pkg --root DIR --identifier ID --version V --install-location DIR --out FILE
+    tools/release-signing notarize FILE          (submits, waits, then staples a .pkg, .app or .dmg)
+    tools/release-signing verify PATH...         (codesign, spctl, pkgutil and stapler checks, by file type)
+    tools/release-signing verify-au --manufacturer CODE DIR   (installs the .component bundles of DIR, then auval -strict)
+    tools/release-signing cleanup                (deletes the temporary keychain and key files)
+    add --dry-run before the subcommand to print the commands and run nothing
+
+The secrets live in the GitHub Environment `release` (which has a required reviewer and only runs for
+tags). Nothing is read from anywhere else:
+    MACOS_APP_CERT_P12        base64 of the Developer ID Application certificate and key (.p12)
+    MACOS_INSTALLER_CERT_P12  base64 of the Developer ID Installer certificate and key (.p12); only
+                              with --installer (repositories that ship a .pkg)
+    MACOS_CERT_PASSWORD       the password both .p12 files were exported with
+    ASC_KEY_P8                the App Store Connect API key for notarytool (the .p8 text, or its base64)
+    ASC_KEY_ID, ASC_ISSUER_ID that key's ids
+    ASC_KEY_P8_FILE           (local use) a path to the .p8 instead of ASC_KEY_P8
+
+With none of them set `check` prints "signing=no" and exits 10, and the workflow ships the ad-hoc builds,
+labelled as such. All set: exit 0, "signing=yes". Some but not all: exit 1, because a half-configured
+release must not quietly ship unsigned. Standard library only; signing needs macOS (codesign, security,
+pkgbuild, productsign, notarytool, stapler, spctl, pkgutil).
+"""
+import argparse
+import base64
+import os
+import shutil
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+
+BASE = ["MACOS_APP_CERT_P12", "MACOS_CERT_PASSWORD", "ASC_KEY_P8", "ASC_KEY_ID", "ASC_ISSUER_ID"]
+INSTALLER = "MACOS_INSTALLER_CERT_P12"
+SKIP = 10
+# RELEASE_KEYCHAIN points the signing steps at an existing keychain (a local proof on a developer Mac).
+KEYCHAIN = Path(os.environ.get("RELEASE_KEYCHAIN") or Path(os.environ.get("RUNNER_TEMP", tempfile.gettempdir())) / "squatch-release.keychain-db")
+BUNDLES = (".clap", ".vst3", ".component", ".app")
+DRY = False
+
+
+def run(cmd, capture=False, check=True):
+    print("  $ " + " ".join(str(c) for c in cmd), flush=True)
+    if DRY:
+        return ""
+    r = subprocess.run([str(c) for c in cmd], check=check, text=True, capture_output=capture)
+    return (r.stdout or "") + (r.stderr or "") if capture else ""
+
+
+def needed(installer):
+    return BASE + ([INSTALLER] if installer else [])
+
+
+def have_key(env):
+    return bool(env.get("ASC_KEY_P8") or env.get("ASC_KEY_P8_FILE"))
+
+
+def check(env, out, installer=False):
+    names = needed(installer)
+    have = [k for k in names if env.get(k) or (k == "ASC_KEY_P8" and have_key(env))]
+    state = "yes" if len(have) == len(names) else "no" if not have else "partial"
+    if out:
+        with open(out, "a") as f:
+            f.write(f"signing={'yes' if state == 'yes' else 'no'}\n")
+    if state == "yes":
+        print("release-signing: every signing secret is set; signing and notarizing")
+        return 0
+    if state == "no":
+        print("release-signing: no signing secrets are set: SKIPPING signing and notarization; "
+              "the builds are ad-hoc signed only")
+        return SKIP
+    print("release-signing: only some signing secrets are set (" + ", ".join(have) + "); refusing to continue. "
+          "Set all of " + ", ".join(names) + " or none.", file=sys.stderr)
+    return 1
+
+
+def identity(kind):
+    if DRY:
+        return f"Developer ID {kind}: <identity>"
+    out = run(["security", "find-identity", "-v", KEYCHAIN], capture=True)
+    for line in out.splitlines():
+        if f"Developer ID {kind}:" in line:
+            return line.split('"')[1]
+    return sys.exit(f"release-signing: no Developer ID {kind} identity in the temporary keychain")
+
+
+def decode(value):
+    return base64.b64decode(value)
+
+
+def keychain(env, installer=False):
+    pw = base64.b16encode(os.urandom(16)).decode()
+    work = Path(tempfile.mkdtemp(prefix="squatch-p12-"))
+    try:
+        run(["security", "create-keychain", "-p", pw, KEYCHAIN])
+        run(["security", "set-keychain-settings", "-lut", "21600", KEYCHAIN])
+        run(["security", "unlock-keychain", "-p", pw, KEYCHAIN])
+        for name in [n for n in (["MACOS_APP_CERT_P12"] + ([INSTALLER] if installer else []))]:
+            p12 = work / f"{name}.p12"
+            if not DRY:
+                p12.write_bytes(decode(env[name]))
+            run(["security", "import", p12, "-k", KEYCHAIN, "-P", env.get("MACOS_CERT_PASSWORD", ""),
+                 "-T", "/usr/bin/codesign", "-T", "/usr/bin/productsign", "-T", "/usr/bin/productbuild"])
+            p12.unlink(missing_ok=True)
+        run(["security", "set-key-partition-list", "-S", "apple-tool:,apple:,codesign:", "-s", "-k", pw, KEYCHAIN])
+        # Ours first, then whatever the user already searches (a runner may have no login keychain).
+        existing = [ln.strip().strip('"') for ln in run(["security", "list-keychains", "-d", "user"], capture=True).splitlines()]
+        run(["security", "list-keychains", "-d", "user", "-s", KEYCHAIN, *[k for k in existing if k and k != str(KEYCHAIN)]])
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+    return 0
+
+
+def cleanup():
+    run(["security", "delete-keychain", KEYCHAIN], check=False)  # also drops it from the search list
+    return 0
+
+
+def sign(paths, entitlements):
+    ident = identity("Application")
+    for p in paths:
+        cmd = ["codesign", "--force", "--timestamp", "--options", "runtime", "--keychain", KEYCHAIN, "--sign", ident]
+        run(cmd + (["--entitlements", entitlements] if entitlements else []) + [p])
+        run(["codesign", "--verify", "--strict", "--verbose=2", p])
+    return 0
+
+
+def pkg(a):
+    unsigned = Path(a.out).with_suffix(".unsigned.pkg")
+    run(["pkgbuild", "--root", a.root, "--identifier", a.identifier, "--version", a.version,
+         "--install-location", a.install_location, unsigned])
+    run(["productsign", "--timestamp", "--keychain", KEYCHAIN, "--sign", identity("Installer"), unsigned, a.out])
+    run(["pkgutil", "--check-signature", a.out])
+    return 0
+
+
+def notarize(path, env):
+    work = Path(tempfile.mkdtemp(prefix="squatch-p8-"))
+    key = env.get("ASC_KEY_P8_FILE") or work / "AuthKey.p8"
+    try:
+        if not DRY and not env.get("ASC_KEY_P8_FILE"):
+            raw = env["ASC_KEY_P8"]
+            Path(key).write_bytes(raw.encode() if "BEGIN" in raw else decode(raw))
+        run(["xcrun", "notarytool", "submit", path, "--key", key, "--key-id", env.get("ASC_KEY_ID", ""),
+             "--issuer", env.get("ASC_ISSUER_ID", ""), "--wait"])
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+    if str(path).endswith((".pkg", ".app", ".dmg")):
+        run(["xcrun", "stapler", "staple", path])
+    return 0
+
+
+def verify(paths):
+    """What Gatekeeper and the signing tools say about each file. A failing check fails the run."""
+    for p in map(str, paths):
+        if p.endswith(".pkg"):
+            run(["pkgutil", "--check-signature", p])
+            run(["spctl", "-a", "-vv", "-t", "install", p])
+            run(["xcrun", "stapler", "validate", p])
+        elif p.endswith(BUNDLES):
+            run(["codesign", "--verify", "--deep", "--strict", "--verbose=2", p])
+            run(["codesign", "-dvv", p], capture=False)
+            run(["spctl", "-a", "-vv", "-t", "open", "--context", "context:primary-signature", p])
+        else:  # a bare executable: Gatekeeper judges it by its ticket at first launch
+            run(["codesign", "--verify", "--strict", "--verbose=2", p])
+            run(["codesign", "-dvv", p])
+            run(["spctl", "-a", "-vv", "-t", "install", p], check=False)
+    return 0
+
+
+def au_ids(bundle):
+    """(type, subtype, manufacturer) of every audio unit a .component declares in its Info.plist."""
+    import plistlib
+    info = plistlib.loads((Path(bundle) / "Contents/Info.plist").read_bytes())
+    return [(c["type"], c["subtype"], c["manufacturer"]) for c in info.get("AudioComponents", [])]
+
+
+def verify_au(directory, manufacturer, tries=30):
+    """Installs every .component in DIR for the current user, waits until auval lists each audio unit the
+    bundles declare, then runs `auval -strict` on exactly those. Needs a macOS session; any audio unit that
+    never registers, or fails, is an error."""
+    bundles = sorted(Path(directory).glob("*.component"))
+    if not bundles and not DRY:
+        sys.exit(f"release-signing: no .component in {directory}")
+    dest = Path.home() / "Library/Audio/Plug-Ins/Components"
+    run(["mkdir", "-p", dest])
+    for b in bundles:
+        run(["ditto", b, dest / b.name])
+    if DRY:
+        run(["auval", "-strict", "-v", "<type>", "<subtype>", manufacturer])
+        return 0
+    wanted = [i for b in bundles for i in au_ids(b)]
+    if not wanted or any(m != manufacturer for _, _, m in wanted):
+        sys.exit(f"release-signing: the bundles declare {wanted}, not only manufacturer {manufacturer}")
+    missing = wanted
+    for _ in range(tries):
+        listed = {tuple(ln.split()[:3]) for ln in subprocess.run(["auval", "-a"], capture_output=True, text=True).stdout.splitlines()}
+        missing = [i for i in wanted if i not in listed]
+        if not missing:
+            break
+        subprocess.run(["sleep", "2"])
+    if missing:
+        sys.exit(f"release-signing: auval does not list {missing}")
+    for kind, sub, manu in wanted:
+        run(["auval", "-strict", "-v", kind, sub, manu])
+    return 0
+
+
+def clean(env):
+    """A secret piped from a tool that ends its output with a newline must still be exact."""
+    return {k: (v.rstrip("\r\n") if k in ("MACOS_CERT_PASSWORD", "ASC_KEY_ID", "ASC_ISSUER_ID") else v)
+            for k, v in env.items()}
+
+
+def main(argv, env=os.environ):
+    global DRY
+    env = clean(env)
+    ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    ap.add_argument("--dry-run", action="store_true")
+    sub = ap.add_subparsers(dest="cmd", required=True)
+    for name in ("check", "keychain"):
+        c = sub.add_parser(name)
+        c.add_argument("--installer", action="store_true")
+        if name == "check":
+            c.add_argument("--github-output")
+    sub.add_parser("cleanup")
+    s = sub.add_parser("sign")
+    s.add_argument("--entitlements")
+    s.add_argument("paths", nargs="+")
+    k = sub.add_parser("pkg")
+    for flag in ("root", "identifier", "version", "install-location", "out"):
+        k.add_argument("--" + flag, required=True)
+    n = sub.add_parser("notarize")
+    n.add_argument("file")
+    v = sub.add_parser("verify")
+    v.add_argument("paths", nargs="+")
+    u = sub.add_parser("verify-au")
+    u.add_argument("--manufacturer", required=True)
+    u.add_argument("directory")
+    a = ap.parse_args(argv)
+    DRY = a.dry_run
+    handlers = {"check": lambda: check(env, a.github_output, a.installer),
+                "keychain": lambda: keychain(env, a.installer), "cleanup": cleanup,
+                "sign": lambda: sign(a.paths, a.entitlements), "pkg": lambda: pkg(a),
+                "notarize": lambda: notarize(a.file, env), "verify": lambda: verify(a.paths),
+                "verify-au": lambda: verify_au(a.directory, a.manufacturer)}
+    try:
+        return handlers[a.cmd]()
+    except (subprocess.CalledProcessError, OSError) as e:
+        why = f"{Path(str(e.cmd[0])).name} exited {e.returncode}" if isinstance(e, subprocess.CalledProcessError) else str(e)
+        print(f"release-signing: {a.cmd} failed: {why}", file=sys.stderr)
+        return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

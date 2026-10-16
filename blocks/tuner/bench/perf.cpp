@@ -57,7 +57,8 @@ int main() {
   std::mt19937 rng(3);
   std::normal_distribution<float> g(0.0f, 1e-5f);
   for (float& v : quiet) v = g(rng);
-  std::printf("| algorithm | ns/sample playing | of one core @48k | ns/sample quiet | of one core @48k |\n"
+  std::printf("# Squatch Tuner: CPU cost\n\n"
+              "| algorithm | ns/sample playing | of one core @48k | ns/sample quiet | of one core @48k |\n"
               "|---|---|---|---|---|\n");
   auto runAlgo = [&](const char* name, auto make) {
     auto a = make(), b = make();
@@ -76,7 +77,8 @@ int main() {
   q.configure(PolyConfig{});
   row("Poly strum check (6 strings)", nsPerSample(play, [&](const float* s, int n) { p.process(s, n); }),
       nsPerSample(quiet, [&](const float* s, int n) { q.process(s, n); }));
-  std::printf("\nObject sizes (all of the memory, no heap): Tuner %zu bytes, PolyTuner %zu bytes, StrobeBank %zu bytes, "
+  std::printf("\nObject sizes (all of the memory, no heap): Tuner %zu bytes, PolyTuner %zu bytes,\n"
+              "StrobeBank %zu bytes, "
               "PartialChannel %zu bytes.\n", sizeof(Tuner), sizeof(PolyTuner), sizeof(StrobeBank), sizeof(PartialChannel));
   return 0;
 }

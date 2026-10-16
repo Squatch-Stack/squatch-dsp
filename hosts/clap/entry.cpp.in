@@ -1,0 +1,23 @@
+// SPDX-License-Identifier: MIT
+// The exported clap_entry of one plugin binary (CLAP, or inside the VST3/AUv2 wrapper), forwarding
+// to the squatch_clap_entry_@KEY@ its implementation library defines. Configured by CMake.
+#include <clap/clap.h>
+
+extern "C" const clap_plugin_entry_t squatch_clap_entry_@KEY@;
+
+namespace {
+bool init(const char* path) { return squatch_clap_entry_@KEY@.init(path); }
+void deinit() { squatch_clap_entry_@KEY@.deinit(); }
+const void* factory(const char* id) { return squatch_clap_entry_@KEY@.get_factory(id); }
+}  // namespace
+
+extern "C" {
+#ifdef __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wattributes"
+#endif
+CLAP_EXPORT const clap_plugin_entry_t clap_entry = {CLAP_VERSION_INIT, init, deinit, factory};
+#ifdef __GNUC__
+#pragma GCC diagnostic pop
+#endif
+}

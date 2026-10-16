@@ -1,0 +1,43 @@
+{
+  "profile": "cc.squatch.control/1",
+  "product": {
+    "id": "cc.squatch.nam-amp",
+    "key": "nam_amp",
+    "name": "Squatch NAM",
+    "form": "2-knob",
+    "house": "Squatch Stack",
+    "lv2": "urn:squatch-stack:lv2:nam-amp",
+    "version": "0.2.0",
+    "stateVersion": 1,
+    "block": "NamAmp",
+    "header": "nam_block.hpp",
+    "requires": "nam",
+    "description": "A Neural Amp Modeler (.nam) model, run by NeuralAmpModelerCore (pinned in hosts/clap/deps.lock), signal path as the browser rig's NAM head: input gain, the model, output gain (the model's own loudness brought to -18 dBFS when Normalize is on), a 160 Hz low shelf (Bass) and a 10 Hz DC block.",
+    "features": ["audio-effect", "distortion", "mono", "stereo"],
+    "auSubtype": "SqNm",
+    "files": [ { "key": "model", "name": "Model", "kind": "nam",
+                 "note": "A path in the saved state, not a parameter. Loaded off the audio thread and swapped in." } ]
+  },
+  "params": [
+    { "id": 1, "key": "input", "name": "Input", "shortName": "Input", "unit": "db", "min": -24, "max": 24, "default": 0,
+      "taper": "linear", "steps": 0, "group": "", "role": "param", "page": 0, "slot": 0, "smoothMs": 20, "display": { "decimals": 1 } },
+    { "id": 2, "key": "output", "name": "Output", "shortName": "Output", "unit": "db", "min": -40, "max": 24, "default": 0,
+      "taper": "linear", "steps": 0, "group": "", "role": "param", "page": 0, "slot": 1, "smoothMs": 20, "display": { "decimals": 1 },
+      "note": "After the model's loudness normalisation (to -18 dBFS, as NAM's own plugin does). The rig's Master is -24..24; this range is a superset of it (the old top was 12)." },
+    { "id": 4, "key": "bass", "name": "Bass", "shortName": "Bass", "unit": "db", "min": -12, "max": 0, "default": 0,
+      "taper": "linear", "steps": 0, "group": "", "role": "param", "page": 0, "slot": 2, "smoothMs": 12, "display": { "decimals": 1 },
+      "note": "Low shelf at 160 Hz, Q 0.7071 (RBJ cookbook), the rig NAM head's Bass: 0 to -12 dB, after the output gain. 12 ms glide, as the head's coefficient crossfade." },
+    { "id": 5, "key": "normalize", "name": "Normalize", "shortName": "Norm", "unit": null, "min": 0, "max": 1, "default": 1,
+      "taper": "linear", "steps": 1, "group": "", "role": "param", "page": 0, "slot": 3, "smoothMs": 0,
+      "note": "On: a model that states its loudness is brought to -18 dBFS (the rig head's Norm). Off: the model's own level. Applies while playing, through the Output smoother." },
+    { "id": 6, "key": "dcblock", "name": "DC block", "shortName": "DC block", "unit": null, "min": 0, "max": 1, "default": 1,
+      "taper": "linear", "steps": 1, "group": "", "role": "param", "page": 0, "slot": 4, "smoothMs": 0,
+      "note": "A one-pole 10 Hz DC blocker on the output (y = x - x1 + R y1, R = 1 - 2 pi 10 / rate), the rig head's, last in the path." },
+    { "id": 3, "key": "bypass", "name": "Bypass", "shortName": "Bypass", "unit": null, "min": 0, "max": 1, "default": 0,
+      "taper": "linear", "steps": 1, "group": "", "role": "bypass", "smoothMs": 0, "note": "CLAP polarity: 1 means bypassed." },
+    { "id": 100, "key": "out", "name": "Output level", "unit": "db", "min": -60, "max": 0, "default": -60,
+      "role": "meter", "group": "meters", "rateHz": 30 },
+    { "id": 101, "key": "loaded", "name": "Model loaded", "unit": null, "min": 0, "max": 1, "default": 0, "steps": 1,
+      "role": "meter", "group": "meters", "rateHz": 30 }
+  ]
+}

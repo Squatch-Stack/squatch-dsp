@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: MIT
+# Pinned third-party code for the desktop plugins (hosts/clap). Nothing here is part of the core
+# library, and nothing is downloaded by a build: tools/fetch-plugin-deps fetches exactly these
+# commits into build/deps (and the validators into build/tools), checking each SHA and hash.
+# Bump one line at a time, then run `make plugins-check` in full before committing the bump.
+#
+# kind  name            url-or-release                                        pin (commit or sha256)                    note
+repo    clap            https://github.com/free-audio/clap.git                195b42a004144fab0b3cf95e9c067187d15365b7  tag 1.2.10, MIT
+repo    clap-wrapper    https://github.com/free-audio/clap-wrapper.git        e4fdc82024b2d7d774094cb2c3b1a062b2e8d852  branch next 2026-09-24 (after #536 #565 #567), MIT
+repo    vst3sdk         https://github.com/steinbergmedia/vst3sdk.git         9fad9770f2ae8542ab1a548a68c1ad1ac690abe0  tag v3.8.0_build_66, MIT; submodules base cmake pluginterfaces public.sdk
+repo    AudioUnitSDK    https://github.com/apple/AudioUnitSDK.git             53a9a2008aae7fb1b0a9f093dd523b9b12f6c0d9  tag AudioUnitSDK-1.1.0, Apache-2.0
+tool    clap-validator  https://github.com/free-audio/clap-validator/releases/download/0.4.1/clap-validator-0.4.1-127-g152b982-macos-universal.zip  bbec8cd7d18274e549d5d8c12ece3cec54be966129388dd2e742b9957f2ba9f1  0.4.1-127-g152b982, MIT
+tool    pluginval       https://github.com/Tracktion/pluginval/releases/download/v1.0.4/pluginval_macOS.zip  3c4c533bda0c5059eea3ddaea752d757ee2025041f0f47e6bcb0e87f6082b29f  v1.0.4, GPL-3.0 (a tool we run, never linked)

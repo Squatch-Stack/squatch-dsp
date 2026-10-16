@@ -1,0 +1,37 @@
+{
+  "profile": "cc.squatch.control/1",
+  "product": {
+    "id": "cc.squatch.gate", "key": "gate", "name": "Squatch Gate", "form": "6-knob", "house": "Squatch Stack",
+    "lv2": "urn:squatch-stack:lv2:gate",
+    "version": "2.0.0", "stateVersion": 2, "block": "Gate", "header": "squatch/dsp/blocks/gate.hpp",
+    "description": "Noise gate (the browser rig's NoiseGate): opens when the smoothed peak reaches the threshold, closes below threshold minus hysteresis after the hold time, with one-pole attack and release to the range floor.",
+    "features": ["audio-effect", "gate", "mono", "stereo"], "auSubtype": "SqGt"
+  },
+  "params": [
+    { "id": 1, "key": "threshold", "name": "Threshold", "shortName": "Thresh", "unit": "db", "min": -90, "max": -10, "default": -58,
+      "taper": "linear", "steps": 0, "group": "", "role": "param", "page": 0, "slot": 0, "smoothMs": 0, "display": { "decimals": 1 },
+      "note": "Level of the peak envelope (20 ms release) at which a closed gate opens, dBFS. Range and default are the browser rig's (parity fixes 2, 2026-10-11)." },
+    { "id": 2, "key": "hysteresis", "name": "Hysteresis", "shortName": "Hyst", "unit": "db", "min": 0, "max": 20, "default": 6,
+      "taper": "linear", "steps": 0, "group": "", "role": "param", "page": 0, "slot": 1, "smoothMs": 0, "display": { "decimals": 1 },
+      "note": "A positive magnitude: an open gate stays open down to threshold - hysteresis. Settled 2026-09-25; the C++ block used a negative offset before (-30..0)." },
+    { "id": 3, "key": "range", "name": "Range", "shortName": "Range", "unit": "db", "min": -90, "max": 0, "default": -70,
+      "taper": "linear", "steps": 0, "group": "", "role": "param", "page": 0, "slot": 2, "smoothMs": 0, "display": { "decimals": 1 },
+      "note": "Gain when closed (the floor). 0 dB turns the gate into a meter." },
+    { "id": 4, "key": "attack", "name": "Attack", "shortName": "Attack", "unit": "ms", "min": 0.1, "max": 50, "default": 1,
+      "taper": "log", "steps": 0, "group": "", "role": "param", "page": 0, "slot": 3, "smoothMs": 0, "display": { "decimals": 1 },
+      "note": "Time constant of the gain rising to unity (it covers 63 % of the distance in this time)." },
+    { "id": 5, "key": "hold", "name": "Hold", "shortName": "Hold", "unit": "ms", "min": 0, "max": 500, "default": 40,
+      "taper": "linear", "steps": 0, "group": "", "role": "param", "page": 0, "slot": 4, "smoothMs": 0, "display": { "decimals": 0 },
+      "note": "How long the level must stay under the close level before the gate closes (rounded to samples; 0 closes at once)." },
+    { "id": 6, "key": "release", "name": "Release", "shortName": "Release", "unit": "ms", "min": 5, "max": 1000, "default": 90,
+      "taper": "log", "steps": 0, "group": "", "role": "param", "page": 0, "slot": 5, "smoothMs": 0, "display": { "decimals": 0 },
+      "note": "Time constant of the gain falling to the floor. It is a time constant, not the time to cross the range: 90 ms takes about 8.7 dB in the first time constant." },
+    { "id": 7, "key": "bypass", "name": "Bypass", "shortName": "Bypass", "unit": null, "min": 0, "max": 1, "default": 0,
+      "taper": "linear", "steps": 1, "group": "", "role": "bypass", "smoothMs": 0,
+      "note": "CLAP polarity: 1 means bypassed. The host keeps processing and crossfades to the latency-aligned input." },
+    { "id": 100, "key": "reduction", "name": "Gain reduction", "shortName": "GR", "unit": "db", "min": 0, "max": 90, "default": 0,
+      "role": "meter", "group": "meters", "rateHz": 30, "display": { "decimals": 1 } },
+    { "id": 101, "key": "open", "name": "Open", "shortName": "Open", "unit": null, "min": 0, "max": 1, "default": 0, "steps": 1,
+      "role": "meter", "group": "meters", "rateHz": 30 }
+  ]
+}

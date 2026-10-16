@@ -1,0 +1,39 @@
+{
+  "$schema": "cc.squatch.control/1",
+  "profile": "cc.squatch.control/1",
+  "product": {
+    "id": "cc.squatch.tuner",
+    "key": "tuner",
+    "name": "Squatch Tuner",
+    "form": "tuner",
+    "house": "Squatch Stack",
+    "lv2": "urn:squatch-stack:lv2:tuner",
+    "lv2Class": "AnalyserPlugin",
+    "comment": "Chromatic guitar tuner. Audio passes through (or is muted, as a pedal tuner mutes the rig); the pitch, note, cents and level are output ports a host shows as meters."
+  },
+  "params": [
+    { "id": 1, "key": "mute", "name": "Mute", "shortName": "Mute", "unit": null, "min": 0, "max": 1, "default": 0,
+      "taper": "linear", "steps": 1, "group": "", "role": "param", "page": 0, "slot": 0, "smoothMs": 5 },
+    { "id": 2, "key": "a4", "name": "Reference A4", "shortName": "A4", "unit": "hz", "min": 425, "max": 455, "default": 440,
+      "taper": "linear", "steps": 0, "group": "", "role": "param", "page": 0, "slot": 1, "smoothMs": 0,
+      "display": { "decimals": 1 } },
+    { "id": 100, "key": "pitch", "name": "Pitch", "unit": "midinote", "min": -1, "max": 128, "default": -1,
+      "role": "meter", "group": "meters", "rateHz": 30, "note": "fractional MIDI note against Reference A4; -1 when nothing is ringing" },
+    { "id": 101, "key": "note", "name": "Note", "unit": null, "min": -1, "max": 11, "default": -1, "steps": 12,
+      "role": "meter", "group": "meters", "rateHz": 30,
+      "choices": [ { "value": -1, "label": "-" }, { "value": 0, "label": "C" }, { "value": 1, "label": "C#" },
+        { "value": 2, "label": "D" }, { "value": 3, "label": "D#" }, { "value": 4, "label": "E" }, { "value": 5, "label": "F" },
+        { "value": 6, "label": "F#" }, { "value": 7, "label": "G" }, { "value": 8, "label": "G#" }, { "value": 9, "label": "A" },
+        { "value": 10, "label": "A#" }, { "value": 11, "label": "B" } ] },
+    { "id": 102, "key": "octave", "name": "Octave", "unit": null, "min": -1, "max": 9, "default": -1, "steps": 10,
+      "role": "meter", "group": "meters", "rateHz": 30, "hidden": true },
+    { "id": 103, "key": "cents", "name": "Cents", "unit": "cent", "min": -50, "max": 50, "default": 0,
+      "role": "meter", "group": "meters", "rateHz": 30, "display": { "decimals": 1 } },
+    { "id": 104, "key": "level", "name": "Level", "unit": "db", "min": -96, "max": 0, "default": -96,
+      "role": "meter", "group": "meters", "rateHz": 30 },
+    { "id": 105, "key": "valid", "name": "Note", "shortName": "Note", "unit": null, "min": 0, "max": 1, "default": 0, "steps": 1,
+      "role": "meter", "group": "meters", "rateHz": 30, "note": "a lamp: lit while a note is being measured" },
+    { "id": 106, "key": "freq", "name": "Frequency", "unit": "hz", "min": 0, "max": 2000, "default": 0,
+      "role": "meter", "group": "meters", "rateHz": 30, "hidden": true }
+  ]
+}

@@ -1,4 +1,7 @@
-Real DI: 275 notes that ring at least 1.5 s, from 2 file(s); each algorithm runs continuously over the whole file; re-pitch test +7.0 c.
+# Squatch Tuner: real DI accuracy, configuration variants
+
+Real DI: 275 notes that ring at least 1.5 s, from 2 file(s); each algorithm runs continuously
+over the whole file; re-pitch test +7.0 c.
 
 | algorithm | notes | octave/gross slips | re-pitch error median c | abs p50 c | abs p95 c | jitter p50 c | stable ±1c p50/p90 ms | never | stable ±0.1c p50/p90 ms | never |
 |---|---|---|---|---|---|---|---|---|---|---|

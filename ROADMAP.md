@@ -16,21 +16,28 @@
 
 ## The block interface
 
-Every block implements one small interface (`include/squatch/dsp/block.hpp`):
+Every block implements one small interface (`include/squatch/dsp/block.hpp`, version 2):
 
 ```cpp
 struct Block {
-  virtual void prepare(const Setup& s, Arena& mem) = 0;  // sample rate, max block; all memory taken here
-  virtual void process(const float* in, float* out, int n) = 0;  // real-time safe
+  virtual void prepare(const Setup& s, Arena& mem) = 0;  // rate, max block, layout; all memory taken here
+  virtual void process(const float* in, float* out, int n) = 0;  // real-time safe, mono
   virtual void reset() = 0;                                // clear state, keep memory
   virtual void set(ParamId id, float value) = 0;           // clamped and smoothed inside the block
+  virtual float get(ParamId id) const = 0;                 // what set() kept; a meter's newest value
   virtual int latency() const { return 0; }                // samples, for aligning parallel branches
+  virtual int tail() const { return latency(); }           // samples after the input goes silent
+  virtual bool supports(Layout) const;                     // Mono, MonoToStereo; Stereo if linked
+  virtual void processChannels(const AudioIO& io, int n);  // any declared layout
+  virtual Span<const ParamDesc> parameters() const;        // from the block's control contract
+  virtual const BlockInfo& info() const;                   // type id, name, version, state version
 };
 ```
 
 Other threads change parameters through a single-producer queue, and blocks that only measure,
-such as the tuner, publish their readings through a lock-free snapshot. Mono in and mono out
-come first (guitar); stereo arrives with the time-based effects.
+such as the tuner, publish their readings through a lock-free snapshot and as meters. A block's
+parameters come from its control contract (`contracts/`), which also drives the LV2, WAM,
+OSCQuery and MIDI-CI descriptions, so a preset reads the same on every target.
 
 ## Milestones
 
@@ -46,8 +53,10 @@ come first (guitar); stereo arrives with the time-based effects.
    click-free preset switching. An LV2 plugin that hosts a whole board.
 5. **More blocks.** Compressor, drives, envelope filter, delay and reverb, each with its
    reference and golden render.
-6. **Browser and desktop.** The whole engine as WebAssembly in an AudioWorklet, and as a desktop
-   plugin (CLAP, with VST3 and AU wrappers).
+6. **Browser and desktop.** The whole engine as WebAssembly in an AudioWorklet, and as desktop
+   plugins. Started: the limiter, gate, EQ, tuner and cabinet are CLAP, VST3 and AUv2 plugins
+   (`hosts/clap`), checked by clap-validator, the VST3 validator, pluginval, auval and sanitizer
+   legs. Next: a native GUI, LV2 from the same contracts, and the iOS AUv3 spike.
 
 ## Open questions
 

@@ -1,0 +1,130 @@
+{
+  "profile": "cc.squatch.control/1",
+  "product": {
+    "id": "cc.squatch.trail-od",
+    "key": "trail_od",
+    "name": "Squatch Trail OD",
+    "form": "3-knob",
+    "house": "Squatch Stack",
+    "lv2": "urn:squatch-stack:lv2:trail-od",
+    "version": "2.0.0",
+    "stateVersion": 1,
+    "block": "TrailOD",
+    "header": "squatch/dsp/blocks/trail_od.hpp",
+    "description": "Tube-screamer-style overdrive (the browser rig's Overdrive): a clean unity path plus a boosted, band-limited, asymmetric soft-clipped branch at 4x oversampling, a DC block, a tone low-pass and level.",
+    "features": [
+      "audio-effect",
+      "distortion",
+      "mono",
+      "stereo"
+    ],
+    "auSubtype": "SqTo"
+  },
+  "params": [
+    {
+      "id": 1,
+      "key": "drive",
+      "name": "Drive",
+      "shortName": "Drive",
+      "unit": null,
+      "min": 0,
+      "max": 1,
+      "default": 0.5,
+      "taper": "linear",
+      "steps": 0,
+      "group": "",
+      "role": "param",
+      "page": 0,
+      "slot": 0,
+      "smoothMs": 20,
+      "display": {
+        "scale": 10,
+        "decimals": 1
+      },
+      "note": "Pot rotation, 0 to 1. The kit's A500k audio taper is part of the circuit model, not of this mapping."
+    },
+    {
+      "id": 2,
+      "key": "tone",
+      "name": "Tone",
+      "shortName": "Tone",
+      "unit": null,
+      "min": 0,
+      "max": 1,
+      "default": 0.5,
+      "taper": "linear",
+      "steps": 0,
+      "group": "",
+      "role": "param",
+      "page": 0,
+      "slot": 1,
+      "smoothMs": 20,
+      "display": {
+        "scale": 10,
+        "decimals": 1
+      }
+    },
+    {
+      "id": 3,
+      "key": "level",
+      "name": "Level",
+      "shortName": "Level",
+      "unit": "db",
+      "min": -30,
+      "max": 12,
+      "default": -6,
+      "taper": "linear",
+      "steps": 0,
+      "group": "",
+      "role": "param",
+      "page": 0,
+      "slot": 2,
+      "smoothMs": 20,
+      "display": {
+        "decimals": 1
+      },
+      "note": "Linear in dB, which is what an audio-taper level pot approximates."
+    },
+    {
+      "id": 4,
+      "key": "bypass",
+      "name": "Bypass",
+      "shortName": "Bypass",
+      "unit": null,
+      "min": 0,
+      "max": 1,
+      "default": 0,
+      "taper": "linear",
+      "steps": 1,
+      "group": "",
+      "role": "bypass",
+      "smoothMs": 0,
+      "note": "CLAP polarity: 1 means bypassed. LV2 lv2:enabled is the inverse."
+    },
+    {
+      "id": 100,
+      "key": "out",
+      "name": "Output level",
+      "unit": "db",
+      "min": -60,
+      "max": 0,
+      "default": -60,
+      "role": "meter",
+      "group": "meters",
+      "rateHz": 30
+    },
+    {
+      "id": 101,
+      "key": "clip",
+      "name": "Clip",
+      "unit": null,
+      "min": 0,
+      "max": 1,
+      "default": 0,
+      "steps": 1,
+      "role": "meter",
+      "group": "meters",
+      "rateHz": 30
+    }
+  ]
+}

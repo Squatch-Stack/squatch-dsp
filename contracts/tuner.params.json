@@ -1,0 +1,34 @@
+{
+  "profile": "cc.squatch.control/1",
+  "product": {
+    "id": "cc.squatch.tuner", "key": "tuner", "name": "Squatch Tuner", "form": "tuner", "house": "Squatch Stack",
+    "lv2": "urn:squatch-stack:lv2:tuner",
+    "version": "1.0.0", "stateVersion": 1, "block": "TunerBlock", "header": "squatch/dsp/blocks/tuner.hpp",
+    "description": "The Squatch Tuner as an analyser: note, cents and frequency as meters; the audio passes, or mutes.",
+    "features": ["audio-effect", "analyzer", "utility", "mono", "stereo"], "auSubtype": "SqTn"
+  },
+  "params": [
+    { "id": 1, "key": "mute", "name": "Mute", "shortName": "Mute", "unit": null, "min": 0, "max": 1, "default": 0,
+      "taper": "linear", "steps": 1, "group": "", "role": "param", "page": 0, "slot": 0, "smoothMs": 5,
+      "choices": [ { "value": 0, "label": "Through" }, { "value": 1, "label": "Muted" } ] },
+    { "id": 2, "key": "a4", "name": "Reference A4", "shortName": "A4", "unit": "hz", "min": 400, "max": 480, "default": 440,
+      "taper": "linear", "steps": 80, "group": "", "role": "param", "page": 0, "slot": 1, "smoothMs": 0, "display": { "decimals": 0 },
+      "note": "Whole hertz. The note and cents meters are read against it." },
+    { "id": 3, "key": "bypass", "name": "Bypass", "shortName": "Bypass", "unit": null, "min": 0, "max": 1, "default": 0,
+      "taper": "linear", "steps": 1, "group": "", "role": "bypass", "smoothMs": 0 },
+    { "id": 100, "key": "note", "name": "Note", "shortName": "Note", "unit": null, "min": 0, "max": 11, "default": 9, "steps": 11,
+      "role": "meter", "group": "meters", "rateHz": 30,
+      "choices": [ { "value": 0, "label": "C" }, { "value": 1, "label": "C#" }, { "value": 2, "label": "D" }, { "value": 3, "label": "D#" },
+                   { "value": 4, "label": "E" }, { "value": 5, "label": "F" }, { "value": 6, "label": "F#" }, { "value": 7, "label": "G" },
+                   { "value": 8, "label": "G#" }, { "value": 9, "label": "A" }, { "value": 10, "label": "A#" }, { "value": 11, "label": "B" } ] },
+    { "id": 101, "key": "octave", "name": "Octave", "shortName": "Oct", "unit": null, "min": 0, "max": 9, "default": 4, "steps": 9,
+      "role": "meter", "group": "meters", "rateHz": 30 },
+    { "id": 102, "key": "cents", "name": "Cents", "shortName": "Cents", "unit": "cent", "min": -50, "max": 50, "default": 0,
+      "role": "meter", "group": "meters", "rateHz": 30, "display": { "decimals": 1 } },
+    { "id": 103, "key": "frequency", "name": "Frequency", "shortName": "Hz", "unit": "hz", "min": 0, "max": 2000, "default": 0,
+      "role": "meter", "group": "meters", "rateHz": 30, "display": { "decimals": 2 } },
+    { "id": 104, "key": "signal", "name": "Signal", "shortName": "Signal", "unit": null, "min": 0, "max": 1, "default": 0, "steps": 1,
+      "role": "meter", "group": "meters", "rateHz": 30,
+      "choices": [ { "value": 0, "label": "none" }, { "value": 1, "label": "reading" } ] }
+  ]
+}

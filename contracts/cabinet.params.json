@@ -1,0 +1,24 @@
+{
+  "profile": "cc.squatch.control/1",
+  "product": {
+    "id": "cc.squatch.cabinet", "key": "cabinet", "name": "Squatch Cab", "form": "1-knob", "house": "Squatch Stack",
+    "lv2": "urn:squatch-stack:lv2:cabinet",
+    "version": "1.1.0", "stateVersion": 1, "block": "Cabinet", "header": "squatch/dsp/blocks/cabinet.hpp",
+    "description": "Cabinet impulse response loader: exact convolution with no added latency, then the browser rig's Low cut and High cut (2nd-order, Q 0.7 dB as WebAudio defines it).",
+    "features": ["audio-effect", "filter", "mono", "stereo"], "auSubtype": "SqCb",
+    "files": [ { "key": "ir", "name": "Impulse response", "kind": "wav",
+                 "note": "A path in the saved state, not a parameter. Loaded, resampled and swapped off the audio thread, with a short crossfade." } ]
+  },
+  "params": [
+    { "id": 1, "key": "level", "name": "Level", "shortName": "Level", "unit": "db", "min": -40, "max": 20, "default": 0,
+      "taper": "linear", "steps": 0, "group": "", "role": "param", "page": 0, "slot": 0, "smoothMs": 20, "display": { "decimals": 1 } },
+    { "id": 3, "key": "lowcut", "name": "Low cut", "shortName": "Low cut", "unit": "hz", "min": 20, "max": 300, "default": 70,
+      "taper": "log", "steps": 0, "group": "", "role": "param", "page": 0, "slot": 1, "smoothMs": 20, "display": { "decimals": 0 },
+      "note": "2nd-order high-pass after the convolution, the rig's Cab Low cut (RBJ cookbook, WebAudio Q of 0.7 dB). It is always in the path, as the rig's is: 20 Hz is its lowest setting, not off." },
+    { "id": 4, "key": "highcut", "name": "High cut", "shortName": "High cut", "unit": "hz", "min": 2000, "max": 16000, "default": 9000,
+      "taper": "log", "steps": 0, "group": "", "role": "param", "page": 0, "slot": 2, "smoothMs": 20, "display": { "decimals": 0 },
+      "note": "2nd-order low-pass after the high-pass, the rig's Cab High cut (same design as Low cut). At 16 kHz it still lifts 8 kHz by about 1 dB; it is never off." },
+    { "id": 2, "key": "bypass", "name": "Bypass", "shortName": "Bypass", "unit": null, "min": 0, "max": 1, "default": 0,
+      "taper": "linear", "steps": 1, "group": "", "role": "bypass", "smoothMs": 0 }
+  ]
+}

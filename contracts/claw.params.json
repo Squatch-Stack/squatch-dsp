@@ -1,0 +1,132 @@
+{
+  "profile": "cc.squatch.control/1",
+  "product": {
+    "id": "cc.squatch.claw",
+    "key": "claw",
+    "name": "Squatch Claw",
+    "form": "3-knob",
+    "house": "Squatch Stack",
+    "lv2": "urn:squatch-stack:lv2:claw",
+    "version": "0.1.0",
+    "stateVersion": 1,
+    "block": "Claw",
+    "header": "squatch/dsp/blocks/claw.hpp",
+    "description": "The Squatch Claw board (an op-amp distortion with hard diode clipping) as a circuit model: the LM308 stage's closed-loop response with its gain-bandwidth, slew and rails, the 1N4148 pair solved against its load, the Filter rheostat, Volume and the JFET buffer. Checked against SPICE of the board's own netlist.",
+    "features": [
+      "audio-effect",
+      "distortion",
+      "mono",
+      "stereo"
+    ],
+    "auSubtype": "SqCl"
+  },
+  "params": [
+    {
+      "id": 1,
+      "key": "distortion",
+      "name": "Distortion",
+      "shortName": "Distortion",
+      "unit": null,
+      "min": 0,
+      "max": 1,
+      "default": 0.5,
+      "taper": "linear",
+      "steps": 0,
+      "group": "",
+      "role": "param",
+      "page": 0,
+      "slot": 0,
+      "smoothMs": 20,
+      "display": {
+        "decimals": 1,
+        "scale": 10
+      },
+      "note": "Pot rotation. The board's C-taper 100k rheostat in the gain leg: 100k at 0, about 100 ohms at 10."
+    },
+    {
+      "id": 2,
+      "key": "filter",
+      "name": "Filter",
+      "shortName": "Filter",
+      "unit": null,
+      "min": 0,
+      "max": 1,
+      "default": 0.3,
+      "taper": "linear",
+      "steps": 0,
+      "group": "",
+      "role": "param",
+      "page": 0,
+      "slot": 1,
+      "smoothMs": 20,
+      "display": {
+        "decimals": 1,
+        "scale": 10
+      },
+      "note": "Pot rotation, darker clockwise: the B100k rheostat into 3.3 nF."
+    },
+    {
+      "id": 3,
+      "key": "volume",
+      "name": "Volume",
+      "shortName": "Volume",
+      "unit": null,
+      "min": 0,
+      "max": 1,
+      "default": 0.7,
+      "taper": "linear",
+      "steps": 0,
+      "group": "",
+      "role": "param",
+      "page": 0,
+      "slot": 2,
+      "smoothMs": 20,
+      "display": {
+        "decimals": 1,
+        "scale": 10
+      },
+      "note": "Pot rotation: the A100k volume pot's wiper fraction."
+    },
+    {
+      "id": 4,
+      "key": "bypass",
+      "name": "Bypass",
+      "shortName": "Bypass",
+      "unit": null,
+      "min": 0,
+      "max": 1,
+      "default": 0,
+      "taper": "linear",
+      "steps": 1,
+      "group": "",
+      "role": "bypass",
+      "smoothMs": 0,
+      "note": "CLAP polarity: 1 means bypassed."
+    },
+    {
+      "id": 100,
+      "key": "out",
+      "name": "Output level",
+      "unit": "db",
+      "min": -60,
+      "max": 0,
+      "default": -60,
+      "role": "meter",
+      "group": "meters",
+      "rateHz": 30
+    },
+    {
+      "id": 101,
+      "key": "clip",
+      "name": "Clip",
+      "unit": null,
+      "min": 0,
+      "max": 1,
+      "default": 0,
+      "steps": 1,
+      "role": "meter",
+      "group": "meters",
+      "rateHz": 30
+    }
+  ]
+}

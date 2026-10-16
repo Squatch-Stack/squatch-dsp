@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Watches for real-time violations between arm() and disarm(): heap traffic through the global
 // operator new/delete (replaced in rt_watch.cpp) and through malloc/free (the sanitizer
-// allocator's hooks), and lock acquisitions (lockcount.c, macOS).
+// allocator's hooks), and lock acquisitions (lockcount.c, macOS). Only the thread that called
+// arm() is watched, so a plugin's loader thread may allocate while its audio thread is checked.
 #pragma once
 
 namespace rt {

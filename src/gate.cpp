@@ -5,24 +5,20 @@
 namespace squatch::dsp {
 namespace {
 
-const ParamDesc kParams[] = {
-    {Gate::Threshold, "Threshold", "dB", -120.0f, 0.0f, -90.0f, 0.0f},
-    {Gate::Hysteresis, "Hysteresis", "dB", -30.0f, 0.0f, -6.0f, 0.0f},
-    {Gate::Range, "Range", "dB", -60.0f, -6.0f, -60.0f, 0.0f},
-    {Gate::Attack, "Attack", "ms", 1.0f, 500.0f, 1.0f, 0.0f},
-    {Gate::Hold, "Hold", "ms", 1.0f, 100.0f, 100.0f, 0.0f},
-    {Gate::Release, "Release", "ms", 10.0f, 1000.0f, 330.0f, 0.0f},
-};
-static_assert(sizeof(kParams) / sizeof(kParams[0]) == Gate::kCount, "one descriptor per parameter");
+constexpr double kEnvelopeMs = 20.0;  // the detector's fall time constant
 
-float samples(float ms, double sampleRate) { return static_cast<float>(std::fmax(1.0, ms * 1e-3 * sampleRate)); }
+double toGain(double db) { return std::pow(10.0, db / 20.0); }
+
+// A one-pole's kept fraction for a time constant in ms (0 ms: no smoothing).
+double keep(double ms, double sampleRate) { return ms <= 0.0 ? 0.0 : std::exp(-1.0 / (0.001 * ms * sampleRate)); }
+
+// The peak of the frame, non-finite counting as silence.
+double peakOf(double a) { return std::isfinite(a) ? a : 0.0; }
 
 }  // namespace
 
-Span<const ParamDesc> Gate::params() { return kParams; }
-
 Gate::Gate() {
-  for (const ParamDesc& d : kParams) value_[d.id] = d.def;
+  for (int k = 0; k < kParamCount; ++k) value_[k] = kParams[k].def;
   update();
   reset();
 }
@@ -36,48 +32,75 @@ void Gate::prepare(const Setup& s, Arena&) {
 void Gate::process(const float* in, float* out, int n) {
   for (int i = 0; i < n; ++i) {
     const float x = in[i];
-    detect(std::fabs(x));
-    out[i] = x * step();
+    detect(peakOf(std::fabs(static_cast<double>(x))));
+    out[i] = static_cast<float>(x * step());
+  }
+}
+
+// Linked stereo: the louder side decides, both sides get the same gain.
+void Gate::processChannels(const AudioIO& io, int n) {
+  if (io.inChannels < 2 || io.outChannels < 2) return Block::processChannels(io, n);
+  const float* l = io.in[0];
+  const float* r = io.in[1];
+  for (int i = 0; i < n; ++i) {
+    const float a = l[i], b = r[i];
+    detect(peakOf(std::fmax(std::fabs(static_cast<double>(a)), std::fabs(static_cast<double>(b)))));
+    const double g = step();
+    io.out[0][i] = static_cast<float>(a * g);
+    io.out[1][i] = static_cast<float>(b * g);
   }
 }
 
 void Gate::reset() {
   open_ = false;
   holdLeft_ = 0;
+  env_ = 0.0;
   gain_ = floor_;
 }
 
 void Gate::set(ParamId id, float value) {
-  if (id >= kCount) return;
+  if (id >= kParamCount) return;
   value_[id] = kParams[id].clamp(value);
   update();
 }
 
-void Gate::detect(float level) {
-  if (level >= closeLevel_ && (open_ || level >= openLevel_)) {
+float Gate::get(ParamId id) const {
+  if (id < kParamCount) return value_[id];
+  if (id == Reduction)
+    return kParams[Reduction].clamp(gain_ > 0.0 ? static_cast<float>(-20.0 * std::log10(gain_)) : kParams[Reduction].max);
+  if (id == Open) return open_ ? 1.0f : 0.0f;
+  return NAN;
+}
+
+// The envelope rises at once and falls over kEnvelopeMs; the thresholds, hold and open state follow.
+void Gate::detect(double level) {
+  env_ = level > env_ ? level : envFall_ * env_ + (1.0 - envFall_) * level;
+  if (env_ >= openLevel_) {
     open_ = true;
     holdLeft_ = holdSamples_;
-  } else if (open_ && --holdLeft_ <= 0) {
-    open_ = false;
+  } else if (env_ < closeLevel_) {
+    if (holdLeft_ > 0) --holdLeft_;
+    else open_ = false;
   }
 }
 
-// Towards unity while open, towards the floor while closed; a range change moves the same way.
-float Gate::step() {
-  const float target = open_ ? 1.0f : floor_;
-  gain_ = gain_ < target ? std::fmin(gain_ * up_, target) : std::fmax(gain_ * down_, target);
+// One-pole towards unity while open, towards the floor while closed (a range change moves the same way).
+double Gate::step() {
+  const double target = open_ ? 1.0 : floor_;
+  const double c = target > gain_ ? attack_ : release_;
+  gain_ = c * gain_ + (1.0 - c) * target;
   return gain_;
 }
 
-// Parameters apply at once: the thresholds are comparisons, and the gain already ramps.
+// Parameters apply at once: the thresholds are comparisons, and the gain already glides.
 void Gate::update() {
-  openLevel_ = dbToGain(value_[Threshold]);
-  closeLevel_ = dbToGain(value_[Threshold] + value_[Hysteresis]);
-  floor_ = dbToGain(value_[Range]);
-  const float rangeDb = -value_[Range];
-  up_ = dbToGain(rangeDb / samples(value_[Attack], sampleRate_));
-  down_ = dbToGain(-rangeDb / samples(value_[Release], sampleRate_));
-  holdSamples_ = static_cast<int>(samples(value_[Hold], sampleRate_));
+  envFall_ = keep(kEnvelopeMs, sampleRate_);
+  attack_ = keep(value_[Attack], sampleRate_);
+  release_ = keep(value_[Release], sampleRate_);
+  openLevel_ = toGain(value_[Threshold]);
+  closeLevel_ = toGain(static_cast<double>(value_[Threshold]) - value_[Hysteresis]);
+  floor_ = toGain(value_[Range]);
+  holdSamples_ = static_cast<int>(std::lround(value_[Hold] * sampleRate_ / 1000.0));
 }
 
 }  // namespace squatch::dsp

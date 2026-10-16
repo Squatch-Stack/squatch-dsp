@@ -179,22 +179,30 @@ class StrobeBank {
 
   /// Frequency offset of partial k and its inverse variance. With lagCompensation the offset is
   /// taken at the newest point (see PhaseSlopeWindow::endSlope), otherwise at the window centre.
-  PartialMeasure measure(int k, bool lagCompensation = true) const {
+  PartialMeasure measure(int k, bool lagCompensation = true) const { return measure(k, lagCompensation ? 1.0f : 0.0f); }
+
+  /// The same, taken `lead` of the way from the window centre (0) to the newest point (1).
+  PartialMeasure measure(int k, float lead) const {
     const PartialChannel::Fit& f = ch_[k].fit();
-    const float hzPerRadStep = rate_ / (kTwoPi * static_cast<float>(decim_));
     float slope = f.slope(), variance = 0.0f;
-    if (lagCompensation) {
-      slope = f.endSlope(variance);
+    if (lead > 0.0f) {
+      slope = f.slopeAt(lead, variance);
     } else {
       const float r = f.residualVariance() > 1e-6f ? f.residualVariance() : 1e-6f;
       variance = f.information() > 0.0f ? r / f.information() : 1e30f;
     }
-    PartialMeasure m;
-    m.offsetHz = slope * hzPerRadStep;
-    m.information = 1.0f / (variance * hzPerRadStep * hzPerRadStep + 1e-30f);
-    m.power = ch_[k].power();
-    m.points = f.points();
-    return m;
+    return make(k, slope, variance);
+  }
+
+  /// Two measures of partial k from one parabola fit, at leads a and b (both > 0): what the
+  /// tuner's steady and fast fits read each hop, for half the arithmetic.
+  void measurePair(int k, float leadA, float leadB, PartialMeasure& a, PartialMeasure& b) const {
+    PartialChannel::Fit::Reading ra, rb;
+    ra.lead = leadA;
+    rb.lead = leadB;
+    ch_[k].fit().slopesAt(ra, rb);
+    a = make(k, ra.slope, ra.variance);
+    b = make(k, rb.slope, rb.variance);
   }
 
   /// Power in odd partials (1, 3, 5, ...) over power in even ones. Near zero means the
@@ -212,6 +220,16 @@ class StrobeBank {
   float refHz() const { return refHz_; }
 
  private:
+  PartialMeasure make(int k, float slope, float variance) const {
+    const float hzPerRadStep = rate_ / (kTwoPi * static_cast<float>(decim_));
+    PartialMeasure m;
+    m.offsetHz = slope * hzPerRadStep;
+    m.information = 1.0f / (variance * hzPerRadStep * hzPerRadStep + 1e-30f);
+    m.power = ch_[k].power();
+    m.points = ch_[k].fit().points();
+    return m;
+  }
+
   Nco nco_;
   std::array<PartialChannel, Limits::kMaxPartials> ch_{};
   float rate_ = 12000.0f;

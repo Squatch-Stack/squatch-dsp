@@ -17,8 +17,8 @@ GUITAR_TECHS ?= data/guitar-techs
 P1 := $(GUITAR_TECHS)/P1_singlenotes/P1_singlenotes/audio/directinput/directinput_allsinglenotes.wav
 P2 := $(GUITAR_TECHS)/P2_singlenotes/P2_singlenotes/audio/directinput/directinput_allsinglenotes.wav
 
-.PHONY: all test results lint clean
-all: $(BUILD)/tests $(BUILD)/eval_synth $(BUILD)/eval_real $(BUILD)/eval_poly $(BUILD)/perf
+.PHONY: all test results stability lint clean
+all: $(BUILD)/tests $(BUILD)/eval_synth $(BUILD)/eval_real $(BUILD)/eval_poly $(BUILD)/eval_stability $(BUILD)/perf
 
 $(BUILD)/%: bench/%.cpp $(BENCH_COMMON) $(HEADERS) | $(BUILD)
 	$(CXX) $(CXXFLAGS) -o $@ $< $(BENCH_COMMON) -lpthread
@@ -28,6 +28,13 @@ $(BUILD)/tests: tests/test_core.cpp $(HEADERS) | $(BUILD)
 
 $(BUILD):
 	mkdir -p $(BUILD)
+
+# Stability in a room (flickers, restarts, jumps, held value). ROOM is a recording of a room's
+# ambience (its first 10 s are used); SESSION is any live take to score without a reference.
+ROOM ?=
+SESSION ?=
+stability: $(BUILD)/eval_stability
+	./$(BUILD)/eval_stability $(if $(ROOM),--room $(ROOM)) --di $(P1) $(if $(SESSION),--session $(SESSION))
 
 test: $(BUILD)/tests
 	./$(BUILD)/tests

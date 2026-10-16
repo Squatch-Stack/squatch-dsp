@@ -1,0 +1,144 @@
+@prefix lv2: <http://lv2plug.in/ns/lv2core#> .
+@prefix units: <http://lv2plug.in/ns/extensions/units#> .
+@prefix pprops: <http://lv2plug.in/ns/ext/port-props#> .
+@prefix doap: <http://usefulinc.com/ns/doap#> .
+@prefix foaf: <http://xmlns.com/foaf/0.1/> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix urid: <http://lv2plug.in/ns/ext/urid#> .
+@prefix state: <http://lv2plug.in/ns/ext/state#> .
+
+<urn:squatch-stack:lv2>
+  a doap:Project ;
+  doap:name "Squatch Stack LV2" ;
+  doap:license <https://spdx.org/licenses/MIT> ;
+  doap:maintainer [ a foaf:Person ; foaf:name "Squatch Stack" ; foaf:homepage <https://github.com/squatch-stack> ] .
+
+<urn:squatch-stack:lv2:tuner>
+  a lv2:Plugin, lv2:AnalyserPlugin ;
+  doap:name "Squatch Tuner" ;
+  doap:license <https://spdx.org/licenses/MIT> ;
+  lv2:project <urn:squatch-stack:lv2> ;
+  lv2:minorVersion 1 ;
+  lv2:microVersion 0 ;
+  rdfs:comment "Chromatic guitar tuner. Audio passes through (or is muted, as a pedal tuner mutes the rig); the pitch, note, cents and level are output ports a host shows as meters." ;
+  lv2:optionalFeature lv2:hardRTCapable ;
+  lv2:port
+    [
+      a lv2:InputPort, lv2:ControlPort ;
+      lv2:index 0 ;
+      lv2:symbol "mute" ;
+      lv2:name "Mute" ;
+      lv2:default 0.0 ;
+      lv2:minimum 0.0 ;
+      lv2:maximum 1.0 ;
+      lv2:portProperty lv2:toggled
+    ] ,
+    [
+      a lv2:InputPort, lv2:ControlPort ;
+      lv2:index 1 ;
+      lv2:symbol "a4" ;
+      lv2:name "Reference A4" ;
+      lv2:default 440.0 ;
+      lv2:minimum 425.0 ;
+      lv2:maximum 455.0 ;
+      units:unit units:hz
+    ] ,
+    [
+      a lv2:OutputPort, lv2:ControlPort ;
+      lv2:index 2 ;
+      lv2:symbol "pitch" ;
+      lv2:name "Pitch" ;
+      lv2:default -1.0 ;
+      lv2:minimum -1.0 ;
+      lv2:maximum 128.0 ;
+      units:unit units:midiNote ;
+      rdfs:comment "fractional MIDI note against Reference A4; -1 when nothing is ringing"
+    ] ,
+    [
+      a lv2:OutputPort, lv2:ControlPort ;
+      lv2:index 3 ;
+      lv2:symbol "note" ;
+      lv2:name "Note" ;
+      lv2:default -1.0 ;
+      lv2:minimum -1.0 ;
+      lv2:maximum 11.0 ;
+      lv2:portProperty lv2:integer, lv2:enumeration ;
+      lv2:scalePoint [ rdfs:label "-" ; rdf:value -1.0 ] ;
+      lv2:scalePoint [ rdfs:label "C" ; rdf:value 0.0 ] ;
+      lv2:scalePoint [ rdfs:label "C#" ; rdf:value 1.0 ] ;
+      lv2:scalePoint [ rdfs:label "D" ; rdf:value 2.0 ] ;
+      lv2:scalePoint [ rdfs:label "D#" ; rdf:value 3.0 ] ;
+      lv2:scalePoint [ rdfs:label "E" ; rdf:value 4.0 ] ;
+      lv2:scalePoint [ rdfs:label "F" ; rdf:value 5.0 ] ;
+      lv2:scalePoint [ rdfs:label "F#" ; rdf:value 6.0 ] ;
+      lv2:scalePoint [ rdfs:label "G" ; rdf:value 7.0 ] ;
+      lv2:scalePoint [ rdfs:label "G#" ; rdf:value 8.0 ] ;
+      lv2:scalePoint [ rdfs:label "A" ; rdf:value 9.0 ] ;
+      lv2:scalePoint [ rdfs:label "A#" ; rdf:value 10.0 ] ;
+      lv2:scalePoint [ rdfs:label "B" ; rdf:value 11.0 ]
+    ] ,
+    [
+      a lv2:OutputPort, lv2:ControlPort ;
+      lv2:index 4 ;
+      lv2:symbol "octave" ;
+      lv2:name "Octave" ;
+      lv2:default -1.0 ;
+      lv2:minimum -1.0 ;
+      lv2:maximum 9.0 ;
+      lv2:portProperty lv2:integer, pprops:notOnGUI
+    ] ,
+    [
+      a lv2:OutputPort, lv2:ControlPort ;
+      lv2:index 5 ;
+      lv2:symbol "cents" ;
+      lv2:name "Cents" ;
+      lv2:default 0.0 ;
+      lv2:minimum -50.0 ;
+      lv2:maximum 50.0 ;
+      units:unit units:cent
+    ] ,
+    [
+      a lv2:OutputPort, lv2:ControlPort ;
+      lv2:index 6 ;
+      lv2:symbol "level" ;
+      lv2:name "Level" ;
+      lv2:default -96.0 ;
+      lv2:minimum -96.0 ;
+      lv2:maximum 0.0 ;
+      units:unit units:db
+    ] ,
+    [
+      a lv2:OutputPort, lv2:ControlPort ;
+      lv2:index 7 ;
+      lv2:symbol "valid" ;
+      lv2:name "Note" ;
+      lv2:default 0.0 ;
+      lv2:minimum 0.0 ;
+      lv2:maximum 1.0 ;
+      lv2:portProperty lv2:toggled ;
+      rdfs:comment "a lamp: lit while a note is being measured"
+    ] ,
+    [
+      a lv2:OutputPort, lv2:ControlPort ;
+      lv2:index 8 ;
+      lv2:symbol "freq" ;
+      lv2:name "Frequency" ;
+      lv2:default 0.0 ;
+      lv2:minimum 0.0 ;
+      lv2:maximum 2000.0 ;
+      units:unit units:hz ;
+      lv2:portProperty pprops:notOnGUI
+    ] ,
+    [
+      a lv2:InputPort, lv2:AudioPort ;
+      lv2:index 9 ;
+      lv2:symbol "in" ;
+      lv2:name "In"
+    ] ,
+    [
+      a lv2:OutputPort, lv2:AudioPort ;
+      lv2:index 10 ;
+      lv2:symbol "out" ;
+      lv2:name "Out"
+    ] .

@@ -1,4 +1,6 @@
-### Synthetic strums (300), error against the true pitch at that moment: RMS c (p95 |err|) [valid %]
+# Squatch Tuner: polyphonic accuracy
+
+## Synthetic strums (300), error against the true pitch at that moment: RMS c (p95 |err|) [valid %]
 
 | string | 250 ms | 500 ms | 1000 ms |
 |---|---|---|---|
@@ -9,7 +11,9 @@
 | B3 | 7.97 (16.69) [85%] | 6.40 (12.86) [81%] | 6.72 (19.86) [98%] |
 | E4 | 8.73 (17.81) [88%] | 8.40 (21.94) [84%] | 6.89 (18.28) [99%] |
 
-### Real strums (300), open strings from directinput_allsinglenotes.wav mixed with 0-40 ms spread and 0 to -6 dB levels:
+## Real strums (300)
+
+Open strings from directinput_allsinglenotes.wav mixed with 0-40 ms spread and 0 to -6 dB levels;
 poly reading minus the mono reading of the same pluck alone, RMS c (p95 |diff|) [valid %]
 
 | string | open-string pitch (mono, 1.2 s) | 250 ms | 500 ms | 1000 ms |

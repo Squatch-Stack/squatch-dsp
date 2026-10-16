@@ -34,7 +34,7 @@ const Setting kSettings[] = {
 
 void apply(Eq& eq, const Setting& s) {
   const float v[] = {s.lowF, s.lowG, s.midF, s.midG, s.midQ, s.highF, s.highG};
-  for (ParamId id = 0; id < Eq::kCount; ++id) eq.set(id, v[id]);
+  for (ParamId id = 0; id < Eq::kParamCount; ++id) eq.set(id, v[id]);
 }
 
 // The block, prepared and moved past its smoothing.

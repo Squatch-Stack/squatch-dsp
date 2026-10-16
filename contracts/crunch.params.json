@@ -1,0 +1,129 @@
+{
+  "profile": "cc.squatch.control/1",
+  "product": {
+    "id": "cc.squatch.crunch",
+    "key": "crunch",
+    "name": "Squatch Crunch",
+    "form": "3-knob",
+    "house": "Squatch Stack",
+    "lv2": "urn:squatch-stack:lv2:crunch",
+    "version": "1.0.0",
+    "stateVersion": 1,
+    "block": "Crunch",
+    "header": "squatch/dsp/blocks/crunch.hpp",
+    "description": "High-gain amp preamp: a tightening high-pass, three cascaded asymmetric tube-like soft-clipping stages with interstage filtering, run at 4x oversampling, then a level. Put the cabinet after it.",
+    "features": [
+      "audio-effect",
+      "distortion",
+      "mono",
+      "stereo"
+    ],
+    "auSubtype": "SqCr"
+  },
+  "params": [
+    {
+      "id": 1,
+      "key": "gain",
+      "name": "Gain",
+      "shortName": "Gain",
+      "unit": null,
+      "min": 0,
+      "max": 1,
+      "default": 0.6,
+      "taper": "linear",
+      "steps": 0,
+      "group": "",
+      "role": "param",
+      "page": 0,
+      "slot": 0,
+      "smoothMs": 20,
+      "display": {
+        "decimals": 1,
+        "scale": 10
+      }
+    },
+    {
+      "id": 2,
+      "key": "tight",
+      "name": "Tight",
+      "shortName": "Tight",
+      "unit": null,
+      "min": 0,
+      "max": 1,
+      "default": 0.5,
+      "taper": "linear",
+      "steps": 0,
+      "group": "",
+      "role": "param",
+      "page": 0,
+      "slot": 1,
+      "smoothMs": 20,
+      "display": {
+        "decimals": 1,
+        "scale": 10
+      },
+      "note": "Input high-pass from 40 Hz (loose) to 400 Hz (tight): less low end into the clipping keeps palm mutes chugging instead of farting out."
+    },
+    {
+      "id": 3,
+      "key": "level",
+      "name": "Level",
+      "shortName": "Level",
+      "unit": "db",
+      "min": -40,
+      "max": 6,
+      "default": -12,
+      "taper": "linear",
+      "steps": 0,
+      "group": "",
+      "role": "param",
+      "page": 0,
+      "slot": 2,
+      "smoothMs": 20,
+      "display": {
+        "decimals": 1
+      }
+    },
+    {
+      "id": 4,
+      "key": "bypass",
+      "name": "Bypass",
+      "shortName": "Bypass",
+      "unit": null,
+      "min": 0,
+      "max": 1,
+      "default": 0,
+      "taper": "linear",
+      "steps": 1,
+      "group": "",
+      "role": "bypass",
+      "smoothMs": 0,
+      "note": "CLAP polarity: 1 means bypassed."
+    },
+    {
+      "id": 100,
+      "key": "out",
+      "name": "Output level",
+      "unit": "db",
+      "min": -60,
+      "max": 0,
+      "default": -60,
+      "role": "meter",
+      "group": "meters",
+      "rateHz": 30
+    },
+    {
+      "id": 101,
+      "key": "clip",
+      "name": "Clip",
+      "unit": null,
+      "min": 0,
+      "max": 1,
+      "default": 0,
+      "role": "meter",
+      "group": "meters",
+      "rateHz": 30,
+      "steps": 1
+    }
+  ]
+}

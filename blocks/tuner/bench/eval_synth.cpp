@@ -150,7 +150,7 @@ void printHeader() {
 }
 
 void printPerNote(const char* scenario, const std::vector<std::string>& names, const std::vector<Cell>& cells) {
-  std::printf("\n#### Per note (%s): RMS steady error c / lock ±1 c p50 ms\n\n| note |", scenario);
+  std::printf("\n### Per note (%s): RMS steady error c / lock ±1 c p50 ms\n\n| note |", scenario);
   for (const auto& n : names) std::printf(" %s |", n.c_str());
   std::printf("\n|---|");
   for (size_t i = 0; i < names.size(); ++i) std::printf("---|");
@@ -169,7 +169,8 @@ int main(int argc, char** argv) {
   const bool fullRate = argc > 2 && !std::strcmp(argv[2], "--full-rate");
   const auto algos = algorithms(fullRate);
   const bool perNoteAll = std::getenv("PER_NOTE") != nullptr;
-  std::printf("Synthetic matrix: %zu notes E1..E6 x %d trials, detune uniform ±50 c, 48 kHz input. "
+  std::printf("# Squatch Tuner: synthetic accuracy\n\n"
+              "Synthetic matrix: %zu notes E1..E6 x %d trials, detune uniform ±50 c, 48 kHz input.\n"
               "Steady window 0.5-1.5 s after the pluck unless stated.\n",
               notes().size(), trials);
   for (const Scenario& sc : scenarios()) {
@@ -181,7 +182,7 @@ int main(int argc, char** argv) {
       cells.push_back(jobs[i].get());
       names.push_back(algos[i]()->name());
     }
-    std::printf("\n### %s: %s\n\n", sc.name, sc.what);
+    std::printf("\n## %s: %s\n\n", sc.name, sc.what);
     printHeader();
     for (size_t i = 0; i < cells.size(); ++i) printRow(names[i], cells[i].all);
     if (perNoteAll || !std::strcmp(sc.name, "guitar")) printPerNote(sc.name, names, cells);

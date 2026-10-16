@@ -1,0 +1,194 @@
+{
+  "profile": "cc.squatch.control/1",
+  "product": {
+    "id": "cc.squatch.comp",
+    "key": "comp",
+    "name": "Squatch Comp",
+    "form": "6-knob",
+    "house": "Squatch Stack",
+    "lv2": "urn:squatch-stack:lv2:comp",
+    "version": "1.0.0",
+    "stateVersion": 1,
+    "block": "Compressor",
+    "header": "squatch/dsp/blocks/comp.hpp",
+    "description": "Feed-forward compressor in the log domain (Giannoulis, Massberg and Reiss, JAES 2012): peak level, soft-knee gain computer, smooth branching detector on the gain reduction, make-up gain and a blend.",
+    "features": [
+      "audio-effect",
+      "compressor",
+      "mono",
+      "stereo"
+    ],
+    "auSubtype": "SqCp"
+  },
+  "params": [
+    {
+      "id": 1,
+      "key": "threshold",
+      "name": "Threshold",
+      "shortName": "Thresh",
+      "unit": "db",
+      "min": -60,
+      "max": 0,
+      "default": -24,
+      "taper": "linear",
+      "steps": 0,
+      "group": "",
+      "role": "param",
+      "page": 0,
+      "slot": 0,
+      "smoothMs": 0,
+      "display": {
+        "decimals": 1
+      }
+    },
+    {
+      "id": 2,
+      "key": "ratio",
+      "name": "Ratio",
+      "shortName": "Ratio",
+      "unit": null,
+      "min": 1,
+      "max": 20,
+      "default": 4,
+      "taper": "log",
+      "steps": 0,
+      "group": "",
+      "role": "param",
+      "page": 0,
+      "slot": 1,
+      "smoothMs": 0,
+      "display": {
+        "decimals": 1
+      }
+    },
+    {
+      "id": 3,
+      "key": "attack",
+      "name": "Attack",
+      "shortName": "Attack",
+      "unit": "ms",
+      "min": 0.1,
+      "max": 100,
+      "default": 5,
+      "taper": "log",
+      "steps": 0,
+      "group": "",
+      "role": "param",
+      "page": 0,
+      "slot": 2,
+      "smoothMs": 0,
+      "display": {
+        "decimals": 1
+      }
+    },
+    {
+      "id": 4,
+      "key": "release",
+      "name": "Release",
+      "shortName": "Release",
+      "unit": "ms",
+      "min": 10,
+      "max": 1000,
+      "default": 120,
+      "taper": "log",
+      "steps": 0,
+      "group": "",
+      "role": "param",
+      "page": 0,
+      "slot": 3,
+      "smoothMs": 0,
+      "display": {
+        "decimals": 0
+      }
+    },
+    {
+      "id": 5,
+      "key": "knee",
+      "name": "Knee",
+      "shortName": "Knee",
+      "unit": "db",
+      "min": 0,
+      "max": 24,
+      "default": 6,
+      "taper": "linear",
+      "steps": 0,
+      "group": "",
+      "role": "param",
+      "page": 0,
+      "slot": 4,
+      "smoothMs": 0,
+      "display": {
+        "decimals": 1
+      }
+    },
+    {
+      "id": 6,
+      "key": "makeup",
+      "name": "Makeup",
+      "shortName": "Makeup",
+      "unit": "db",
+      "min": 0,
+      "max": 24,
+      "default": 6,
+      "taper": "linear",
+      "steps": 0,
+      "group": "",
+      "role": "param",
+      "page": 0,
+      "slot": 5,
+      "smoothMs": 20,
+      "display": {
+        "decimals": 1
+      }
+    },
+    {
+      "id": 7,
+      "key": "mix",
+      "name": "Blend",
+      "shortName": "Blend",
+      "unit": null,
+      "min": 0,
+      "max": 1,
+      "default": 1,
+      "taper": "linear",
+      "steps": 0,
+      "group": "",
+      "role": "param",
+      "page": 0,
+      "slot": 6,
+      "smoothMs": 20,
+      "display": {
+        "decimals": 2
+      },
+      "note": "Parallel compression: 0 is dry, 1 fully compressed."
+    },
+    {
+      "id": 8,
+      "key": "bypass",
+      "name": "Bypass",
+      "shortName": "Bypass",
+      "unit": null,
+      "min": 0,
+      "max": 1,
+      "default": 0,
+      "taper": "linear",
+      "steps": 1,
+      "group": "",
+      "role": "bypass",
+      "smoothMs": 0,
+      "note": "CLAP polarity: 1 means bypassed."
+    },
+    {
+      "id": 100,
+      "key": "reduction",
+      "name": "Gain reduction",
+      "unit": "db",
+      "min": 0,
+      "max": 60,
+      "default": 0,
+      "role": "meter",
+      "group": "meters",
+      "rateHz": 30
+    }
+  ]
+}
