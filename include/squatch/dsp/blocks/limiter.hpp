@@ -21,17 +21,33 @@
 // ceiling follows as the last guarantee on the samples: it only engages on float rounding, after a
 // ceiling cut (the lookahead holds audio gained for the old ceiling), or on non-audio input (NaN
 // becomes silence, anything past +80 dBFS is treated as +80 dBFS).
+//
+// Controls (contracts/limiter.params.json, settled 2026-09-25 with the browser rig): Drive, a
+// smoothed gain before the limiter (0..18 dB); Ceiling; Release; and Output, a smoothed trim
+// after the final clamp that only attenuates (-24..0 dB), so the output never exceeds the ceiling.
+// At their defaults (0 dB) both are exact multiplications by one: the sound is unchanged.
+//
+// Browser parity (parity fixes 2, 2026-10-11): the browser rig's Limiter (web/worklets/dsp/limiter.js) is the
+// same gain stage (running minimum, release-only one-pole, moving average, delay) with a SAMPLE-peak
+// detector, so it overshoots a ceiling on content near fs/4 (2.1 dB on a 12 kHz tone at -3 dB). This block
+// keeps the true-peak detector, which is the correct behaviour; the overshoot is the browser's defect, to go
+// when it moves to this engine. `useSamplePeakForTest(true)`, called before prepare(), swaps in the
+// browser's detector, lookahead (2 ms) and windows so tests/test_parity_limiter.cpp can hold the gain stage
+// to the browser's renders (ESR < 1e-6). It is not for hosts: nothing in the registry or the plugins sets it.
+//
+// Stereo is linked: each side has its own true-peak detector and delay line, and the louder
+// side's need sets one gain for both. Meter: the most gain reduction (dB) in the last process().
 #pragma once
 #include <cstdint>
 #include <squatch/dsp/block.hpp>
+#include <squatch/dsp/contracts/limiter.hpp>
 #include <squatch/dsp/param.hpp>
 
 namespace squatch::dsp {
 
-class Limiter final : public Block {
+class Limiter final : public Block, public contracts::LimiterContract {
  public:
-  enum Param : ParamId { Ceiling, Release, kCount };
-  static Span<const ParamDesc> params();
+  static constexpr int kMaxChannels = 2;
 
   static constexpr float kLookaheadMs = 1.5f;
   static constexpr int kTaps = 32;    // per phase of the true-peak interpolator (Kaiser, beta 8)
@@ -39,27 +55,38 @@ class Limiter final : public Block {
   static constexpr float kExcessWeight = 2.0f;  // inter-sample excess over the sample peak, counted twice
   static constexpr float kMarginDb = 0.05f;
   static constexpr float kMaxInput = 1e4f;
+  static constexpr float kBrowserLookaheadMs = 2.0f;  // the browser kernel's window, used by the test-only mode
 
   Limiter();
+  /// Test only (see above): the browser's sample-peak detector and 2 ms window. Takes effect at prepare().
+  void useSamplePeakForTest(bool on) { samplePeak_ = on; }
   void prepare(const Setup& s, Arena& mem) override;
   void process(const float* in, float* out, int n) override;
   void reset() override;
   void set(ParamId id, float value) override;
+  float get(ParamId id) const override;
   int latency() const override { return latency_; }
+  void processChannels(const AudioIO& io, int n) override;
+  bool supports(Layout) const override { return true; }
+  Span<const ParamDesc> parameters() const override { return params(); }
+  const BlockInfo& info() const override { return kInfo; }
 
   float gain() const { return gain_; }  // the gain applied to the last output sample
   bool ready() const { return ready_; }
 
  private:
-  float tick(float x);
-  float detect(float x);
+  void tick(const float* x, float* y, int channels);
+  float detect(const float* x, int channels);
+  float truePeak(const float* window) const;
   float hold(float need);
   float smooth(float held);
-  float delay(float x);
+  void sizeWindows(double sampleRate);
   void designInterpolator();
   void update();
 
-  float value_[kCount];
+  float value_[kParamCount];
+  Smoother drive_, output_;
+  int channels_ = 1;
   double sampleRate_ = 48000.0;
   float ceiling_ = 1.0f;
   float margin_ = 1.0f;
@@ -67,9 +94,9 @@ class Limiter final : public Block {
   float fir_[kTaps][kPhases + 1] = {};  // tap-major, padded to 8 lanes, so the phases vectorise
 
   int lookahead_ = 0, latency_ = 0;
-  float* delay_ = nullptr;  // latency_ samples
+  float* delay_[kMaxChannels] = {};  // latency_ samples each
   int delayPos_ = 0;
-  float* hist_ = nullptr;  // the last kTaps inputs, stored twice so a window never wraps
+  float* hist_[kMaxChannels] = {};  // the last kTaps inputs, stored twice so a window never wraps
   int histPos_ = 0;
   float* holdVal_ = nullptr;  // monotonic deque for the sliding minimum
   std::uint32_t* holdAt_ = nullptr;
@@ -81,7 +108,9 @@ class Limiter final : public Block {
   std::uint32_t now_ = 0;
   float released_ = 1.0f;
   float gain_ = 1.0f;
+  float leastGain_ = 1.0f;  // over the last process(), for the meter
   bool ready_ = false;
+  bool samplePeak_ = false;  // test only: the browser's detector
 };
 
 }  // namespace squatch::dsp

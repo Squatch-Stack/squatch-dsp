@@ -168,8 +168,9 @@ int main(int argc, char** argv) {
   const auto recs = loadRecordings(paths);
   size_t notes = 0;
   for (const auto& r : recs) notes += r.onsets.size();
-  std::printf("Real DI: %zu notes that ring at least 1.5 s, from %zu file(s); each algorithm runs continuously "
-              "over the whole file; re-pitch test +%.1f c.\n\n", notes, recs.size(), kShiftCents);
+  std::printf("# Squatch Tuner: real DI accuracy%s\n\n"
+              "Real DI: %zu notes that ring at least 1.5 s, from %zu file(s); each algorithm runs continuously\n"
+              "over the whole file; re-pitch test +%.1f c.\n\n", std::getenv("VARIANTS") ? ", configuration variants" : "", notes, recs.size(), kShiftCents);
   auto algos = algorithms();
   if (std::getenv("VARIANTS")) addVariants(algos);
   std::vector<std::future<std::vector<NoteResult>>> jobs;

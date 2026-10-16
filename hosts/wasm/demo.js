@@ -28,12 +28,12 @@ const prefs = {
 };
 let lastReading = null;
 
-function toReading(f) {
+function toReading(f, samples, rate) {
   const midi = Math.round(f[F.midi]);
   return {
     valid: f[F.valid] > 0.5, midi, note: NAMES[((midi % 12) + 12) % 12], oct: Math.round(f[F.oct]),
     cents: f[F.cents], fast: f[F.fast], hz: f[F.hz], shz: f[F.shz], unc: f[F.unc],
-    parts: Math.round(f[F.parts]), B: f[F.B], a4: f[F.a4], lvl: f[F.lvl], pk: f[F.pk],
+    parts: Math.round(f[F.parts]), B: f[F.B], a4: f[F.a4], lvl: f[F.lvl], pk: f[F.pk], samples, rate,
   };
 }
 
@@ -59,8 +59,8 @@ async function openNode(ctx) {
 }
 
 function onMessage(data) {
-  if (data instanceof Float32Array && data.length === FIELDS) {
-    lastReading = toReading(data);
+  if (data && data.type === 'frame' && data.frame.length === FIELDS) {
+    lastReading = toReading(data.frame, data.samples, data.rate);
     audio.feed.push(lastReading);
   } else if (data && data.type === 'error') {
     fail(`The tuner could not start: ${data.message}`);

@@ -1,0 +1,163 @@
+{
+  "profile": "cc.squatch.control/1",
+  "product": {
+    "id": "cc.squatch.hall",
+    "key": "hall",
+    "name": "Squatch Hall",
+    "form": "5-knob",
+    "house": "Squatch Stack",
+    "lv2": "urn:squatch-stack:lv2:hall",
+    "version": "1.1.0",
+    "stateVersion": 1,
+    "block": "Hall",
+    "header": "squatch/dsp/blocks/hall.hpp",
+    "description": "Stereo feedback delay network reverb (the browser rig's Reverb): 8 lines with a Householder feedback matrix, per-line gains from the decay time, a damping low-pass in every loop, pre-delay and four input allpass diffusers.",
+    "features": [
+      "audio-effect",
+      "reverb",
+      "mono",
+      "stereo"
+    ],
+    "auSubtype": "SqHl"
+  },
+  "params": [
+    {
+      "id": 1,
+      "key": "decay",
+      "name": "Decay",
+      "shortName": "Decay",
+      "unit": "s",
+      "min": 0.2,
+      "max": 12,
+      "default": 2.4,
+      "taper": "log",
+      "steps": 0,
+      "group": "",
+      "role": "param",
+      "page": 0,
+      "slot": 0,
+      "smoothMs": 0,
+      "display": {
+        "decimals": 1
+      }
+    },
+    {
+      "id": 2,
+      "key": "size",
+      "name": "Size",
+      "shortName": "Size",
+      "unit": null,
+      "min": 0.3,
+      "max": 1.5999999,
+      "default": 1,
+      "taper": "linear",
+      "steps": 0,
+      "group": "",
+      "role": "param",
+      "page": 0,
+      "slot": 1,
+      "smoothMs": 0,
+      "display": {
+        "decimals": 2
+      },
+      "note": "The browser rig's range, 0.3 to 1.6. The top is written 1.5999999 (the float below 1.6) because ParamDesc::denormalize(1) computes min + (max - min) in float, which for 1.6 lands one step under it and fails the interface's ends check."
+    },
+    {
+      "id": 3,
+      "key": "damp",
+      "name": "Damp",
+      "shortName": "Damp",
+      "unit": "hz",
+      "min": 1000,
+      "max": 20000,
+      "default": 6500,
+      "taper": "log",
+      "steps": 0,
+      "group": "",
+      "role": "param",
+      "page": 0,
+      "slot": 2,
+      "smoothMs": 0,
+      "display": {
+        "decimals": 0
+      }
+    },
+    {
+      "id": 4,
+      "key": "predelay",
+      "name": "Pre-delay",
+      "shortName": "Pre",
+      "unit": "ms",
+      "min": 0,
+      "max": 150,
+      "default": 18,
+      "taper": "linear",
+      "steps": 0,
+      "group": "",
+      "role": "param",
+      "page": 0,
+      "slot": 3,
+      "smoothMs": 0,
+      "display": {
+        "decimals": 0
+      }
+    },
+    {
+      "id": 5,
+      "key": "mix",
+      "name": "Mix",
+      "shortName": "Mix",
+      "unit": null,
+      "min": 0,
+      "max": 1,
+      "default": 0.25,
+      "taper": "linear",
+      "steps": 0,
+      "group": "",
+      "role": "param",
+      "page": 0,
+      "slot": 4,
+      "smoothMs": 20,
+      "display": {
+        "decimals": 2
+      }
+    },
+    {
+      "id": 7,
+      "key": "width",
+      "name": "Width",
+      "shortName": "Width",
+      "unit": null,
+      "min": 0,
+      "max": 1,
+      "default": 1,
+      "taper": "linear",
+      "steps": 0,
+      "group": "",
+      "role": "param",
+      "page": 0,
+      "slot": 5,
+      "smoothMs": 20,
+      "display": {
+        "decimals": 2
+      },
+      "note": "Stereo width of the wet signal: 1 is the full left/right tank taps, 0 puts the mid on both sides. Mono output is the left channel."
+    },
+    {
+      "id": 6,
+      "key": "bypass",
+      "name": "Bypass",
+      "shortName": "Bypass",
+      "unit": null,
+      "min": 0,
+      "max": 1,
+      "default": 0,
+      "taper": "linear",
+      "steps": 1,
+      "group": "",
+      "role": "bypass",
+      "smoothMs": 0,
+      "note": "CLAP polarity: 1 means bypassed."
+    }
+  ]
+}

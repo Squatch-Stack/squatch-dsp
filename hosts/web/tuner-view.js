@@ -17,19 +17,21 @@
 //
 // A reading is the JSON the JACK host prints (hosts/jack/tuner_live.cpp): valid, note ("C#"),
 // oct, midi, cents (steady), fast (cents of the fast reading), hz, shz, unc, parts, a4,
-// lvl and pk (dBFS). Everything moving is drawn every animation frame, eased toward the newest
-// reading in between.
+// lvl and pk (dBFS), and samples and rate: where in the source's audio it was read. Everything
+// moving is drawn every animation frame, eased toward the newest reading in between. Whether a
+// let-go note stays, and the number it holds, follow the audio (hold.js), not the frame clock:
+// every reading enters the hold as it arrives.
+import { Hold } from './hold.js';
 import { Strobe } from './strobe.js';
 
 export const $ = (id) => document.getElementById(id);
-const HOLD_MS = 1500;        // keep a note on screen this long after the tuner lets go of it
 const GATE_DB = -70;         // the core's gate: below this nothing is read
 const NEEDLE_TAU = 0.09;     // s: needle and number easing
 const STROBE_TAU = 0.05;     // s: strobe speed easing
 
 const state = {
   reading: null, seq: 0, online: false,
-  lastValid: null, lastValidAt: -1e9,
+  lastValid: null, hold: new Hold(),
   needle: 0, strobeCents: 0, prevTs: 0,
   texts: new Map(), a4HeldUntil: 0,
 };
@@ -47,10 +49,10 @@ export function setText(id, text) {
 
 // ---------------------------------------------------------------- view ----
 
-function viewOf(r, now) {
+function viewOf(r) {
   if (!state.online || !r) return 'offline';
   if (r.valid) return 'note';
-  if (now - state.lastValidAt < HOLD_MS) return 'note';
+  if (state.lastValid && state.hold.holding(r)) return 'note';
   return r.lvl < GATE_DB ? 'nosignal' : 'listening';
 }
 
@@ -79,15 +81,21 @@ function renderNote(view, shown, fading) {
 
 function renderCents(shown, view) {
   const c = shown ? state.needle : 0;
-  setText('cents-num', shown ? formatCents(shown.cents) : '--.-');
-  const abs = shown ? Math.abs(shown.cents) : 99;
+  const known = hasCents(shown);
+  setText('cents-num', known ? formatCents(shown.cents) : '--.-');
+  const abs = known ? Math.abs(shown.cents) : 99;
   const live = view === 'note' && shown && shown === state.reading;
-  setText('direction', direction(shown, abs));
+  setText('direction', direction(known ? shown : null, abs));
   seal('seal-05', live && abs <= 0.5);
   seal('seal-01', live && abs <= 0.1);
   $('stage').classList.toggle('in-tune', Boolean(live && abs <= 0.5));
   const x = 500 + Math.max(-50, Math.min(50, c)) * 9;
   $('needle').setAttribute('transform', `translate(${x.toFixed(1)} 0)`);
+}
+
+// A held note may have no number (hold.js): too little of it, or a peg still turning.
+function hasCents(shown) {
+  return Boolean(shown) && !Number.isNaN(shown.cents);
 }
 
 function direction(shown, abs) {
@@ -124,21 +132,20 @@ function ease(current, target, dt, tau) {
   return current + (target - current) * (1 - Math.exp(-dt / tau));
 }
 
-function remember(r, now) {
-  if (!r || !r.valid) return;
-  state.lastValid = r;
-  state.lastValidAt = now;
+// While the tuner reads, the newest reading; after it lets go, the hold's summary of the note.
+function shownReading(view, live) {
+  if (view !== 'note') return null;
+  return live ? state.lastValid : state.hold.held(state.lastValid);
 }
 
 function frame(ts, strobe, host) {
   const dt = Math.min(0.1, state.prevTs ? (ts - state.prevTs) / 1000 : 0);
   state.prevTs = ts;
-  const now = performance.now(), r = state.reading;
-  remember(r, now);
-  const view = viewOf(r, now);
-  const shown = view === 'note' ? state.lastValid : null;
+  const r = state.reading;
+  const view = viewOf(r);
   const live = Boolean(r && r.valid && state.online);
-  if (shown) state.needle = ease(state.needle, shown.cents, dt, NEEDLE_TAU);
+  const shown = shownReading(view, live);
+  if (hasCents(shown)) state.needle = ease(state.needle, shown.cents, dt, NEEDLE_TAU);
   state.strobeCents = ease(state.strobeCents, live ? r.fast : 0, dt, STROBE_TAU);
   renderNote(view, shown, view === 'note' && !live);
   renderCents(shown, view);
@@ -229,11 +236,17 @@ function makeGrain() {
 
 const feed = {
   push(r) {
+    state.hold.add(r);
+    if (r && r.valid) state.lastValid = r;
     state.reading = r;
     state.seq += 1;
     state.online = true;
   },
-  offline() { state.online = false; },
+  offline() {
+    state.online = false;
+    state.hold.forget();  // what comes back is a new stream (hold.js)
+    state.lastValid = null;
+  },
 };
 
 export function startView(host) {

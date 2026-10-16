@@ -1,0 +1,28 @@
+{
+  "profile": "cc.squatch.control/1",
+  "product": {
+    "id": "cc.squatch.eq", "key": "eq", "name": "Squatch EQ", "form": "7-knob", "house": "Squatch Stack",
+    "lv2": "urn:squatch-stack:lv2:eq",
+    "version": "1.0.0", "stateVersion": 1, "block": "Eq", "header": "squatch/dsp/blocks/eq.hpp",
+    "description": "Three-band EQ: RBJ cookbook low shelf, peak and high shelf, smoothed.",
+    "features": ["audio-effect", "equalizer", "mono", "stereo"], "auSubtype": "SqEq"
+  },
+  "params": [
+    { "id": 1, "key": "low_freq", "name": "Low freq", "shortName": "Lo Hz", "unit": "hz", "min": 20, "max": 1000, "default": 100,
+      "taper": "log", "steps": 0, "group": "low", "role": "param", "page": 0, "slot": 0, "smoothMs": 20, "display": { "decimals": 0 } },
+    { "id": 2, "key": "low_gain", "name": "Low gain", "shortName": "Lo dB", "unit": "db", "min": -18, "max": 18, "default": 0,
+      "taper": "linear", "steps": 0, "group": "low", "role": "param", "page": 0, "slot": 1, "smoothMs": 20, "display": { "decimals": 1 } },
+    { "id": 3, "key": "mid_freq", "name": "Mid freq", "shortName": "Mid Hz", "unit": "hz", "min": 100, "max": 10000, "default": 1000,
+      "taper": "log", "steps": 0, "group": "mid", "role": "param", "page": 0, "slot": 2, "smoothMs": 20, "display": { "decimals": 0 } },
+    { "id": 4, "key": "mid_gain", "name": "Mid gain", "shortName": "Mid dB", "unit": "db", "min": -18, "max": 18, "default": 0,
+      "taper": "linear", "steps": 0, "group": "mid", "role": "param", "page": 0, "slot": 3, "smoothMs": 20, "display": { "decimals": 1 } },
+    { "id": 5, "key": "mid_q", "name": "Mid Q", "shortName": "Mid Q", "unit": null, "min": 0.1, "max": 10, "default": 0.7,
+      "taper": "log", "steps": 0, "group": "mid", "role": "param", "page": 0, "slot": 4, "smoothMs": 20, "display": { "decimals": 2 } },
+    { "id": 6, "key": "high_freq", "name": "High freq", "shortName": "Hi Hz", "unit": "hz", "min": 1000, "max": 20000, "default": 5000,
+      "taper": "log", "steps": 0, "group": "high", "role": "param", "page": 0, "slot": 5, "smoothMs": 20, "display": { "decimals": 0 } },
+    { "id": 7, "key": "high_gain", "name": "High gain", "shortName": "Hi dB", "unit": "db", "min": -18, "max": 18, "default": 0,
+      "taper": "linear", "steps": 0, "group": "high", "role": "param", "page": 0, "slot": 6, "smoothMs": 20, "display": { "decimals": 1 } },
+    { "id": 8, "key": "bypass", "name": "Bypass", "shortName": "Bypass", "unit": null, "min": 0, "max": 1, "default": 0,
+      "taper": "linear", "steps": 1, "group": "", "role": "bypass", "smoothMs": 0 }
+  ]
+}

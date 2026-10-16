@@ -1,0 +1,29 @@
+{
+  "profile": "cc.squatch.control/1",
+  "product": {
+    "id": "cc.squatch.limiter", "key": "limiter", "name": "Squatch Limiter", "form": "4-knob", "house": "Squatch Stack",
+    "lv2": "urn:squatch-stack:lv2:limiter",
+    "version": "1.2.0", "stateVersion": 1, "block": "Limiter", "header": "squatch/dsp/blocks/limiter.hpp",
+    "description": "Lookahead true-peak limiter: neither the samples nor the waveform between them go over the ceiling.",
+    "features": ["audio-effect", "limiter", "mastering", "mono", "stereo"], "auSubtype": "SqLm"
+  },
+  "params": [
+    { "id": 1, "key": "ceiling", "name": "Ceiling", "shortName": "Ceiling", "unit": "db", "min": -24, "max": 0, "default": -1,
+      "taper": "linear", "steps": 0, "group": "", "role": "param", "page": 0, "slot": 1, "smoothMs": 0, "display": { "decimals": 1 },
+      "note": "True-peak ceiling, dBTP. Applies at once; the final clamp covers the lookahead already in flight. The browser rig's range (-12..0) is inside this one." },
+    { "id": 2, "key": "release", "name": "Release", "shortName": "Release", "unit": "ms", "min": 10, "max": 1000, "default": 120,
+      "taper": "log", "steps": 0, "group": "", "role": "param", "page": 0, "slot": 2, "smoothMs": 0, "display": { "decimals": 0 },
+      "note": "Time constant of the gain's recovery. The default is the browser rig's (120 ms; this block had 50 before parity fixes 2)." },
+    { "id": 3, "key": "drive", "name": "Drive", "shortName": "Drive", "unit": "db", "min": 0, "max": 18, "default": 0,
+      "taper": "linear", "steps": 0, "group": "", "role": "param", "page": 0, "slot": 0, "smoothMs": 20, "display": { "decimals": 1 },
+      "note": "Gain before the limiter. The browser rig called this key `gain`." },
+    { "id": 4, "key": "output", "name": "Output", "shortName": "Output", "unit": "db", "min": -24, "max": 0, "default": 0,
+      "taper": "linear", "steps": 0, "group": "", "role": "param", "page": 0, "slot": 3, "smoothMs": 20, "display": { "decimals": 1 },
+      "note": "Trim after the limiter. It only attenuates, so the output never exceeds the ceiling." },
+    { "id": 5, "key": "bypass", "name": "Bypass", "shortName": "Bypass", "unit": null, "min": 0, "max": 1, "default": 0,
+      "taper": "linear", "steps": 1, "group": "", "role": "bypass", "smoothMs": 0,
+      "note": "CLAP polarity: 1 means bypassed. The bypassed signal is delayed by the lookahead, so it stays aligned." },
+    { "id": 100, "key": "reduction", "name": "Gain reduction", "shortName": "GR", "unit": "db", "min": 0, "max": 60, "default": 0,
+      "role": "meter", "group": "meters", "rateHz": 30, "display": { "decimals": 1 } }
+  ]
+}

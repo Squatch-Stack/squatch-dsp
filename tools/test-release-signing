@@ -1,0 +1,187 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: MIT
+"""Tests for tools/release-signing: the check that skips signing cleanly, and the commands it would
+run (printed with --dry-run; real signing needs the Developer ID certificates). Each guard has a
+negative control. Run: tools/test-release-signing"""
+import base64
+import contextlib
+import importlib.machinery
+import importlib.util
+import io
+import plistlib
+import tempfile
+import unittest
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+loader = importlib.machinery.SourceFileLoader("release_signing", str(HERE / "release-signing"))
+rs = importlib.util.module_from_spec(importlib.util.spec_from_loader("release_signing", loader))
+loader.exec_module(rs)
+ALL = {k: "x" for k in rs.BASE}
+ALL_INSTALLER = dict(ALL, **{rs.INSTALLER: "x"})
+
+
+def run(argv, env):
+    out, err = io.StringIO(), io.StringIO()
+    with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+        rc = rs.main(argv, env)
+    return rc, out.getvalue() + err.getvalue()
+
+
+class Check(unittest.TestCase):
+    def test_no_secrets_skips_cleanly_and_says_so(self):
+        rc, text = run(["check"], {})
+        self.assertEqual(rc, rs.SKIP)
+        self.assertIn("SKIPPING", text)
+        self.assertIn("ad-hoc", text)
+
+    def test_all_secrets_signs(self):
+        self.assertEqual(run(["check"], ALL)[0], 0)
+
+    def test_half_configured_is_an_error_not_a_silent_skip(self):
+        for missing in rs.BASE:
+            env = {k: v for k, v in ALL.items() if k != missing}
+            self.assertEqual(run(["check"], env)[0], 1, missing)
+
+    def test_installer_certificate_is_required_only_when_asked(self):
+        self.assertEqual(run(["check"], ALL)[0], 0)
+        self.assertEqual(run(["check", "--installer"], ALL)[0], 1)  # negative control
+        self.assertEqual(run(["check", "--installer"], ALL_INSTALLER)[0], 0)
+
+    def test_a_key_file_stands_in_for_the_key_text(self):
+        env = {k: v for k, v in ALL.items() if k != "ASC_KEY_P8"}
+        self.assertEqual(run(["check"], dict(env, ASC_KEY_P8_FILE="/x"))[0], 0)
+        self.assertEqual(run(["check"], env)[0], 1)
+
+    def test_empty_secret_counts_as_absent(self):
+        self.assertEqual(run(["check"], {k: "" for k in rs.BASE})[0], rs.SKIP)
+
+    def test_github_output_records_the_decision(self):
+        with tempfile.TemporaryDirectory() as d:
+            out = Path(d) / "out"
+            run(["check", "--github-output", str(out)], {})
+            self.assertEqual(out.read_text(), "signing=no\n")
+            run(["check", "--github-output", str(out)], ALL)
+            self.assertEqual(out.read_text(), "signing=no\nsigning=yes\n")
+
+
+class Commands(unittest.TestCase):
+    def test_sign_uses_hardened_runtime_and_a_secure_timestamp(self):
+        rc, text = run(["--dry-run", "sign", "A.clap", "B.vst3"], ALL)
+        self.assertEqual(rc, 0)
+        for flag in ("--timestamp", "runtime", "A.clap", "B.vst3", "--verify", "Developer ID Application"):
+            self.assertIn(flag, text)
+        self.assertNotIn("--sign -", text)  # never ad hoc here
+
+    def test_notarize_waits_and_staples_a_pkg_but_not_a_zip(self):
+        self.assertIn("stapler staple", run(["--dry-run", "notarize", "a.pkg"], ALL)[1])
+        text = run(["--dry-run", "notarize", "a.zip"], ALL)[1]
+        self.assertIn("--wait", text)
+        self.assertNotIn("stapler", text)
+
+    def test_pkg_is_signed_with_the_installer_identity(self):
+        argv = ["--dry-run", "pkg", "--root", "r", "--identifier", "cc.squatch.x", "--version", "1", "--install-location", "/", "--out", "o.pkg"]
+        text = run(argv, ALL)[1]
+        self.assertIn("productsign", text)
+        self.assertIn("Developer ID Installer", text)
+
+    def test_keychain_imports_each_certificate_and_installs_no_secret_on_the_command_line_but_the_password(self):
+        text = run(["--dry-run", "keychain", "--installer"], ALL_INSTALLER)[1]
+        self.assertEqual(text.count("security import"), 2)
+        self.assertEqual(run(["--dry-run", "keychain"], ALL)[1].count("security import"), 1)
+
+    def test_cleanup_deletes_the_temporary_keychain(self):
+        text = run(["--dry-run", "cleanup"], {})[1]
+        self.assertIn("delete-keychain", text)
+        self.assertIn("squatch-release.keychain-db", text)
+
+    def test_verify_checks_each_kind_the_way_gatekeeper_will(self):
+        pkg = run(["--dry-run", "verify", "a.pkg"], {})[1]
+        for tool in ("pkgutil --check-signature", "spctl -a -vv -t install", "stapler validate"):
+            self.assertIn(tool, pkg)
+        bundle = run(["--dry-run", "verify", "A.component"], {})[1]
+        for tool in ("--deep --strict", "spctl -a -vv -t open", "context:primary-signature"):
+            self.assertIn(tool, bundle)
+        self.assertNotIn("pkgutil", bundle)  # negative control: each kind gets its own checks
+
+
+class Newlines(unittest.TestCase):
+    def test_a_trailing_newline_is_dropped_from_the_password_and_the_ids_only(self):
+        env = {"MACOS_CERT_PASSWORD": "pw\n", "ASC_KEY_ID": "K\n", "ASC_ISSUER_ID": "I\r\n", "ASC_KEY_P8": "pem\n"}
+        got = rs.clean(env)
+        self.assertEqual((got["MACOS_CERT_PASSWORD"], got["ASC_KEY_ID"], got["ASC_ISSUER_ID"]), ("pw", "K", "I"))
+        self.assertEqual(got["ASC_KEY_P8"], "pem\n")  # negative control: the key text is left alone
+
+    def test_notarize_gets_the_clean_id(self):
+        text = run(["--dry-run", "notarize", "a.zip"], {"ASC_KEY_ID": "KEY\n", "ASC_ISSUER_ID": "ISS\n"})[1]
+        self.assertIn("--key-id KEY --issuer ISS --wait", text)
+
+
+class Failure(unittest.TestCase):
+    def test_a_failing_tool_fails_the_run_with_a_message_not_a_traceback(self):
+        rs.DRY = False
+        rc, text = run(["verify", "/nonexistent/a.pkg"], {})
+        self.assertEqual(rc, 1)
+        self.assertIn("release-signing: verify failed", text)
+        self.assertNotIn("Traceback", text)
+
+
+class VerifyAu(unittest.TestCase):
+    def test_auval_strict_runs_with_the_manufacturer_and_installs_first(self):
+        text = run(["--dry-run", "verify-au", "--manufacturer", "SqSt", "."], {})[1]
+        self.assertIn("auval -strict -v", text)
+        self.assertIn("SqSt", text)
+        self.assertLess(text.index("mkdir"), text.index("auval"))
+
+    def test_an_empty_folder_is_an_error_not_a_pass(self):
+        with tempfile.TemporaryDirectory() as d, self.assertRaises(SystemExit):
+            rs.DRY = False
+            rs.verify_au(d, "SqSt")
+
+
+class AuIds(unittest.TestCase):
+    def bundle(self, d, comps):
+        info = Path(d) / "A.component/Contents/Info.plist"
+        info.parent.mkdir(parents=True)
+        info.write_bytes(plistlib.dumps({"AudioComponents": comps}))
+        return Path(d) / "A.component"
+
+    def test_reads_the_declared_audio_units(self):
+        with tempfile.TemporaryDirectory() as d:
+            b = self.bundle(d, [{"type": "aufx", "subtype": "SqTn", "manufacturer": "SqSt"}])
+            self.assertEqual(rs.au_ids(b), [("aufx", "SqTn", "SqSt")])
+
+    def test_a_foreign_manufacturer_is_refused_before_anything_is_validated(self):
+        with tempfile.TemporaryDirectory() as d, tempfile.TemporaryDirectory() as home:
+            self.bundle(d, [{"type": "aufx", "subtype": "XxXx", "manufacturer": "Othr"}])
+            rs.DRY = False
+            real, real_run = rs.Path.home, rs.run
+            rs.Path.home = staticmethod(lambda: Path(home))
+            rs.run = lambda *a, **k: ""  # no ditto here: this test must run on the Linux CI too
+            try:
+                with self.assertRaises(SystemExit) as e:
+                    rs.verify_au(d, "SqSt")
+            finally:
+                rs.Path.home, rs.run = real, real_run
+            self.assertIn("not only manufacturer SqSt", str(e.exception))
+
+
+class Notarize(unittest.TestCase):
+    def test_pem_text_is_written_as_is_and_base64_is_decoded_and_the_file_is_removed(self):
+        seen, rs.DRY = [], False
+        real = rs.run
+        rs.run = lambda cmd, **kw: seen.append((cmd, Path(str(cmd[cmd.index("--key") + 1])).read_bytes() if "--key" in cmd else None)) or ""
+        try:
+            pem = "-----BEGIN " + "PRIVATE KEY-----\nabc\n-----END " + "PRIVATE KEY-----\n"
+            for secret in (pem, base64.b64encode(pem.encode()).decode()):
+                seen.clear()
+                rs.notarize("a.zip", {"ASC_KEY_P8": secret, "ASC_KEY_ID": "k", "ASC_ISSUER_ID": "i"})
+                cmd, content = seen[0]
+                self.assertEqual(content, pem.encode())
+                self.assertFalse(Path(str(cmd[cmd.index("--key") + 1])).exists())
+        finally:
+            rs.run = real
+
+
+if __name__ == "__main__":
+    unittest.main(verbosity=1)

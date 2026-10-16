@@ -127,25 +127,30 @@ struct Limiter {
   }
 };
 
-// ---- the gate's definition, in double ----
+// ---- the gate's definition, in double: the browser rig's NoiseGate (hysteresis a positive magnitude; attack and
+// release one-pole time constants; a peak envelope that rises at once and falls over 20 ms) ----
 struct Gate {
   double thresholdDb, hysteresisDb, rangeDb, attackMs, holdMs, releaseMs, rate;
 
   std::vector<double> run(const std::vector<float>& x) const {
-    auto samples = [&](double ms) { return std::max(1.0, ms * 1e-3 * rate); };
-    const double open = std::pow(10.0, thresholdDb / 20), close = std::pow(10.0, (thresholdDb + hysteresisDb) / 20);
-    const double floor = std::pow(10.0, rangeDb / 20), holdN = std::floor(samples(holdMs));
-    const double up = std::pow(10.0, -rangeDb / 20 / samples(attackMs));
-    const double down = std::pow(10.0, rangeDb / 20 / samples(releaseMs));
+    auto keep = [&](double ms) { return ms <= 0 ? 0.0 : std::exp(-1.0 / (0.001 * ms * rate)); };
+    const double open = std::pow(10.0, thresholdDb / 20), close = std::pow(10.0, (thresholdDb - hysteresisDb) / 20);
+    const double floor = std::pow(10.0, rangeDb / 20), holdN = std::round(holdMs * rate / 1000);
+    const double fall = keep(20), up = keep(attackMs), down = keep(releaseMs);
     std::vector<double> y(x.size());
     bool isOpen = false;
-    double hold = 0, g = floor;
+    double hold = 0, g = floor, env = 0;
     for (std::size_t i = 0; i < x.size(); ++i) {
       const double level = std::fabs(x[i]);
-      if (level >= close && (isOpen || level >= open)) isOpen = true, hold = holdN;
-      else if (isOpen && --hold <= 0) isOpen = false;
+      env = level > env ? level : fall * env + (1 - fall) * level;
+      if (env >= open) isOpen = true, hold = holdN;
+      else if (env < close) {
+        if (hold > 0) --hold;
+        else isOpen = false;
+      }
       const double target = isOpen ? 1.0 : floor;
-      g = g < target ? std::min(g * up, target) : std::max(g * down, target);
+      const double c = target > g ? up : down;
+      g = c * g + (1 - c) * target;
       y[i] = x[i] * g;
     }
     return y;

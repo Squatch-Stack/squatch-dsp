@@ -1,0 +1,67 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: MIT
+"""Tests for tools/release-scan, each guard with its negative control: a clean tree passes, and the
+same tree with one planted problem fails. Run: tools/test-release-scan"""
+import importlib.machinery
+import importlib.util
+import io
+import sys
+import tempfile
+import unittest
+import zipfile
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+loader = importlib.machinery.SourceFileLoader("release_scan", str(HERE / "release-scan"))
+scan = importlib.util.module_from_spec(importlib.util.spec_from_loader("release_scan", loader))
+loader.exec_module(scan)
+
+GHP = "ghp_" + "a1B2c3D4e5F6g7H8i9J0k1L2m3N4o5P6q7R8"
+
+
+def hits(files, allow=()):
+    with tempfile.TemporaryDirectory() as d:
+        for name, data in files.items():
+            (Path(d) / name).parent.mkdir(parents=True, exist_ok=True)
+            (Path(d) / name).write_bytes(data if isinstance(data, bytes) else data.encode())
+        return scan.scan_path(d, list(allow))
+
+
+class Scan(unittest.TestCase):
+    def test_clean_tree_passes_and_music_a4_is_not_a_code_name(self):
+        self.assertEqual(hits({"a.cpp": "// A4 = 440 Hz, concert pitch\nint main() {}\n"}), [])
+
+    def test_home_path_in_a_binary_is_found(self):
+        self.assertTrue(hits({"p.wasm": b"\x00asm\x00" + b"\x00/Use" + b"rs/someone/src/a.cpp\x00"}))
+        self.assertEqual(hits({"p.wasm": b"\x00asm\x00" + b"\x00./src/a.cpp\x00"}), [])
+
+    def test_token_is_found_and_a_short_lookalike_is_not(self):
+        self.assertTrue(hits({"n.txt": f"token {GHP}"}))
+        self.assertEqual(hits({"n.txt": "ghp_short"}), [])
+
+    def test_trademark_is_found_and_only_the_named_sentence_is_forgiven(self):
+        allow = [("bench/*", scan.re.compile("Ibanez Power Strat"))]
+        self.assertTrue(hits({"x.md": "a Tube Screamer clone"}))
+        self.assertEqual(hits({"bench/x.txt": "dataset guitar: Ibanez Power Strat"}, allow), [])
+        self.assertTrue(hits({"bench/x.txt": "an Ibanez TS-808"}, allow))
+        self.assertTrue(hits({"other/x.txt": "dataset guitar: Ibanez Power Strat"}, allow))
+
+    def test_a_member_of_a_zip_is_scanned(self):
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w") as z:
+            z.writestr("Plugin.clap/Contents/MacOS/p", b"\x00\x00built in /Use" + b"rs/runner/work/x.cpp\x00")
+        found = hits({"plugins.zip": buf.getvalue()})
+        self.assertTrue(found and "plugins.zip!Plugin.clap" in found[0])
+
+    def test_a_broken_scanner_is_refused(self):
+        saved = scan.RULES
+        scan.RULES = []
+        try:
+            self.assertFalse(scan.self_check())
+        finally:
+            scan.RULES = saved
+        self.assertTrue(scan.self_check())
+
+
+if __name__ == "__main__":
+    unittest.main(verbosity=1)

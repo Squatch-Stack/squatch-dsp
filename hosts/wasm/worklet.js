@@ -4,7 +4,9 @@
 //
 // processorOptions: { wasm: ArrayBuffer (tuner.wasm), a4, channel (0-based), minHz, rateHz }
 // Messages in: { a4 } or { channel }. Messages out: { type: 'error', message } once, and after
-// that a Float32Array per reading, laid out as tuner_frame() (see tuner_wasm.cpp).
+// that { type: 'frame', frame, samples, rate } per reading: frame is a Float32Array laid out as
+// tuner_frame() (see tuner_wasm.cpp), samples the input samples the core had heard when it was
+// taken (its audio position, the clock the page's hold runs on: hosts/web/hold.js).
 //
 // process() does not allocate: the block is copied into the module's own input buffer and the
 // frame into a Float32Array made once. The one allocation is postMessage's copy of that
@@ -18,6 +20,7 @@ class SquatchTunerProcessor extends AudioWorkletProcessor {
     this.channel = o.channel ?? 0;
     this.every = Math.max(1, Math.round(sampleRate / (o.rateHz ?? 30)));
     this.count = 0;
+    this.samples = 0;
     this.port.onmessage = (e) => this.command(e.data);
     try {
       this.load(o);
@@ -64,13 +67,16 @@ class SquatchTunerProcessor extends AudioWorkletProcessor {
     if (!this.wasm) return false;
     const channels = inputs[0];
     const x = channels.length ? channels[Math.min(this.channel, channels.length - 1)] : null;
-    if (x) this.tune(x);
+    if (x) {
+      this.tune(x);
+      this.samples += x.length;
+    }
     this.count += x ? x.length : 128;
     if (this.count >= this.every) {
       this.count -= this.every;
       this.wasm.tuner_frame();
       this.out.set(this.frame);
-      this.port.postMessage(this.out);
+      this.port.postMessage({ type: 'frame', frame: this.out, samples: this.samples, rate: sampleRate });
     }
     return true;
   }

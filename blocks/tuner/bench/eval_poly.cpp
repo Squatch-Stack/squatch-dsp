@@ -94,7 +94,8 @@ void syntheticStrums(int trials) {
       }
     }
   }
-  std::printf("### Synthetic strums (%d), error against the true pitch at that moment: RMS c (p95 |err|) [valid %%]\n\n"
+  std::printf("# Squatch Tuner: polyphonic accuracy\n\n"
+              "## Synthetic strums (%d), error against the true pitch at that moment: RMS c (p95 |err|) [valid %%]\n\n"
               "| string | 250 ms | 500 ms | 1000 ms |\n|---|---|---|---|\n", trials);
   for (int s = 0; s < 6; ++s) {
     std::printf("| %s |", kNames[s]);

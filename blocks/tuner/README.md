@@ -16,7 +16,7 @@ The docs site has a chapter explaining the design and comparing it with other tu
 
 ## How it works
 
-```
+```text
 input (any rate) -> decimate to ~12 kHz -> history -> MPM every 5.3 ms: which note?
                                        \-> strobe bank, every sample: how far off?
                                              -> stiffness-aware fit -> reading
@@ -33,19 +33,28 @@ input (any rate) -> decimate to ~12 kHz -> history -> MPM every 5.3 ms: which no
    own significance.
 3. **Stiffness.** Real strings are stiff, so partial k sits at k·f0·√(1+Bk²). The fit estimates
    B per note and reports the fundamental itself, not the sharp average of the harmonics.
-   Measured on real DI, MPM alone reads 2 to 6 cents sharp for this reason.
-4. **Robustness.** It handles five problem cases:
-   - A partial that disagrees with the rest (hum, a sympathetic string) is dropped.
-   - Octave slips in both directions are caught: upwards by the coarse stage, downwards when
-     the odd partials of the reference are empty.
+   Measured on real DI, MPM alone reads 2 to 6 cents sharp for this reason. B is the string's,
+   so it is learned while the note is young and loud (50 ms to 2 s, within 30 dB of its peak)
+   and then held.
+4. **Robustness.** It handles these problem cases:
+   - Partials that disagree with the rest (hum, a sympathetic string) are weighted down
+     smoothly, so the number never flips between two partials. If they still disagree by more
+     than 3 cents, the number is withheld rather than shown.
+   - Octave slips in both directions are caught in the first half second of a note: upwards by
+     the coarse stage, downwards when the odd partials of the reference are empty. After that a
+     note is re-named only by a new pluck.
    - Readings are withheld once a note has decayed into the room's hum and noise floor.
-   - Hum cannot start a note once a real note has been heard.
+   - Hum cannot start a note once a real note has been heard, and nothing starts without a
+     pluck at a note's tail unless it is within 20 dB of that note and above 70 Hz.
+   - Strings ringing together (a hard pluck rings the other open strings) can still start a
+     note: a pitch the coarse stage keeps returning at lower clarity, checked against it.
    - A steady test tone present from power-on still reads.
 5. **Polyphonic strum check** (`poly.hpp`). The tuning is known, so each string gets its own
    strobe channels at its target pitch.
 
 The display gets two readings. `hz` follows the string, glide included, and drives the strobe
-animation. `steadyHz` is averaged over the window and drives the number and needle.
+animation. `steadyHz` is averaged over the window, read a quarter of the way from its centre to
+the newest point, and drives the number and needle.
 `strobeTurns[k]` is each partial's phase, for drawing the strobe.
 
 ## Use
@@ -76,6 +85,7 @@ void audioCallback(const float* in, int n) {
 | `include/squatch/tuner/` | the core: `tuner.hpp` (mono), `poly.hpp` (strum check), `strobe.hpp`, `phase_slope.hpp`, `partial_fit.hpp`, `period.hpp` (MPM, YIN), `level.hpp`, `decimator.hpp`, `nco.hpp`, `history.hpp`, `common.hpp` |
 | `tests/test_core.cpp` | unit tests, built with AddressSanitizer and UBSan; one test counts heap allocations during `process()` (must be zero) |
 | `bench/` | the measurement harness: synthetic plucked strings with known truth, real DI evaluation, polyphonic strums, CPU cost; baselines (YIN, MPM, MPM + phase vocoder) behind the same front end |
+| `bench/quality/` | the quality suite: the display path the apps use (TunerBlock, 30 reads a second, the release hold) over synthetic notes with exact truth and real DI with an offline reference, scored for accuracy and steadiness on every platform (`make tuner-quality`, see its README) |
 | `results/` | raw output of `make results`, which RESULTS.md summarises |
 | `docs/screens/` | screenshots of the live page |
 
@@ -111,7 +121,7 @@ standard library.
 the strobe page in any browser on the network. RESULTS.md, "Live on the Pi 5", has the numbers
 from a Pi 5 with a USB audio interface.
 
-```
+```text
 capture_1 -> jackd (48 kHz, 64 x 3) -> squatch-tuner-live
      JACK realtime thread: Tuner::process() -> Latest<Frame>     (no allocation, locks or I/O)
      main thread, 30 times a second: newest Frame -> one JSON line on stdout

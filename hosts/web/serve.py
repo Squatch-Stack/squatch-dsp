@@ -27,13 +27,15 @@ import time
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from urllib.parse import urlsplit
 
 STATIC = {"/": "index.html", "/index.html": "index.html", "/tuner.css": "tuner.css", "/tuner.js": "tuner.js",
-          "/strobe.js": "strobe.js", "/tuner-view.js": "tuner-view.js",
+          "/strobe.js": "strobe.js", "/hold.js": "hold.js", "/tuner-view.js": "tuner-view.js",
           "/favicon.svg": "favicon.svg", "/tokens.css": "tokens.css"}
 CSP = ("default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; "
        "connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'")
 STALE_SECONDS = 1.0
+SEND_TIMEOUT = 10.0
 
 
 class Feed:
@@ -75,8 +77,12 @@ class Feed:
 
     def set_a4(self, hz):
         with self.stdin_lock:
-            self.child.stdin.write(f"a4 {hz:.2f}\n".encode())
-            self.child.stdin.flush()
+            try:
+                self.child.stdin.write(f"a4 {hz:.2f}\n".encode())
+                self.child.stdin.flush()
+            except (BrokenPipeError, OSError):
+                return False
+        return True
 
 
 class CpuMeter:
@@ -130,15 +136,37 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         if self.path != "/a4":
             return self.send_json({"error": "not found"}, HTTPStatus.NOT_FOUND)
+        refusal = self.refuse_post()
+        if refusal:
+            return self.send_json({"error": refusal}, HTTPStatus.BAD_REQUEST)
         try:
-            body = json.loads(self.rfile.read(min(int(self.headers.get("Content-Length", 0)), 256)))
+            body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
             hz = float(body["a4"])
         except (ValueError, KeyError, TypeError):
             return self.send_json({"error": "expected {\"a4\": 430..450}"}, HTTPStatus.BAD_REQUEST)
         if not 430.0 <= hz <= 450.0:
             return self.send_json({"error": "a4 must be 430..450"}, HTTPStatus.BAD_REQUEST)
-        self.feed.set_a4(hz)
+        if not self.feed.set_a4(hz):
+            return self.send_json({"error": "tuner not running"}, HTTPStatus.SERVICE_UNAVAILABLE)
         return self.send_json({"a4": hz})
+
+    # A4 is shared by every viewer, so only this page may change it. application/json forces a
+    # CORS preflight this server never answers, and a browser always sends Origin on a POST, so a
+    # page on another site (open on any device on the LAN) cannot. A body over 256 bytes, or a
+    # missing or negative length, is refused before anything is read.
+    def refuse_post(self):
+        try:
+            length = int(self.headers.get("Content-Length", ""))
+        except ValueError:
+            return "Content-Length required"
+        if not 0 < length <= 256:
+            return "body must be 1..256 bytes"
+        if self.headers.get("Content-Type", "").split(";")[0].strip() != "application/json":
+            return "Content-Type must be application/json"
+        origin = self.headers.get("Origin")
+        if origin and urlsplit(origin).netloc != self.headers.get("Host", ""):
+            return "cross-origin request refused"
+        return None
 
     def events(self):
         self.send_response(HTTPStatus.OK)
@@ -147,13 +175,14 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("X-Accel-Buffering", "no")
         self.end_headers()
         seq = 0
+        self.connection.settimeout(SEND_TIMEOUT)  # a client that stops reading frees its thread
         try:
             while self.feed.child.poll() is None:
                 seq, line = self.feed.next(seq, timeout=1.0)
                 stale = line is None or self.feed.stale()
                 self.wfile.write(b"event: offline\ndata: {}\n\n" if stale else b"data: " + line + b"\n\n")
                 self.wfile.flush()
-        except (BrokenPipeError, ConnectionResetError):
+        except OSError:  # broken pipe, reset, or the send timeout
             return
 
     def send_json(self, obj, status=HTTPStatus.OK):

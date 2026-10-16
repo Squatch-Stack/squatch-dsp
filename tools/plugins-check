@@ -1,0 +1,174 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: MIT
+# The desktop plugins' whole test matrix (make plugins-check). Each leg prints one line; a leg
+# that cannot run says BLOCKED, never PASS. The summary lands in build/reports/plugins-check.md.
+#
+#   1. contracts current (tools/build-contracts --check)
+#   2. bundles: CLAP, VST3, AUv2 through clap-wrapper (pinned, build/deps)
+#   3. the headless test host (hosts/clap/tests): linked in, and over the built .clap bundles
+#   4. sanitizer legs of the test host: ASan+UBSan, TSan, RealtimeSanitizer (Homebrew LLVM), each
+#      proven able to fail first (--prove-watch); RTSan also over the built bundles
+#   5. clap-validator, the Steinberg VST3 validator (extended), pluginval (VST3 and AU), auval
+# Installs into $HOME/Library/Audio/Plug-Ins (AU validation needs it) unless SQUATCH_NO_INSTALL=1.
+#   PLUGINVAL_STRICTNESS (default 10), LLVM (default /opt/homebrew/opt/llvm)
+set -uo pipefail
+
+root=$(cd "$(dirname "$0")/.." && pwd)
+build="$root/build"
+bundles="$build/plugins/bundles"
+reports="$build/reports"
+llvm=${LLVM:-/opt/homebrew/opt/llvm}
+strictness=${PLUGINVAL_STRICTNESS:-10}
+export PATH="/opt/homebrew/bin:$PATH"
+mkdir -p "$reports"
+summary="$reports/plugins-check.md"
+printf '# plugins-check %s\n\n| leg | result |\n|---|---|\n' "$(date -u +%FT%TZ)" > "$summary"
+failed=0
+
+leg() {  # name status detail
+  printf '%-44s %s %s\n' "$1" "$2" "${3:-}"
+  printf '| %s | %s %s |\n' "$1" "$2" "${3:-}" >> "$summary"
+  [ "$2" = PASS ] || [ "$2" = SKIP ] || failed=1
+}
+
+run() {  # name log command...: PASS when the command exits 0
+  local name=$1 log=$2
+  shift 2
+  if "$@" > "$log" 2>&1; then leg "$name" PASS; else leg "$name" FAIL "(see ${log#"$root"/})"; fi
+}
+
+configure() {  # dir extra cmake args...
+  local dir=$1
+  shift
+  cmake -S "$root/hosts/clap" -B "$dir" -G Ninja "$@" > "$dir.configure.log" 2>&1 && cmake --build "$dir" > "$dir.build.log" 2>&1
+}
+
+sanitizer_leg() {  # name dir cmake args...
+  local name=$1 dir=$2
+  shift 2
+  if ! configure "$dir" -DSQUATCH_WRAPPERS=OFF "$@"; then leg "test host, $name" FAIL "(build: ${dir#"$root"/}.build.log)"; return; fi
+  run "test host, $name" "$reports/host-$name.log" "$dir/squatch-clap-host"
+  if [ "$name" = rtsan ]; then
+    if "$dir/squatch-clap-host" --prove-watch > "$reports/prove-$name.log" 2>&1 || ! grep -q RealtimeSanitizer "$reports/prove-$name.log"; then
+      leg "fail first, $name" FAIL "(RTSan did not abort on a bad process())"
+    else
+      leg "fail first, $name" PASS
+    fi
+    run "test host, $name, built .clap bundles" "$reports/host-$name-bundles.log" "$dir/squatch-clap-host" --bundle "$bundles"/*.clap
+  else
+    run "fail first, $name" "$reports/prove-$name.log" "$dir/squatch-clap-host" --prove-watch
+  fi
+}
+
+clap_validator() {
+  local tool="$build/tools/clap-validator/binaries/clap-validator" b
+  for b in "$bundles"/*.clap; do
+    local n
+    n=$(basename "$b" .clap)
+    "$tool" validate --json "$b" > "$reports/clap-validator-$n.json" 2> /dev/null
+    local result
+    result=$(python3 - "$reports/clap-validator-$n.json" <<'PY'
+import json, sys, collections
+d = json.load(open(sys.argv[1])); c = collections.Counter(r["status"]["code"] for r in d["results"])
+bad = [list(r["test"].values())[0]["test"] for r in d["results"] if r["status"]["code"] not in ("success", "skipped")]
+print(("PASS" if not bad and c["success"] else "FAIL"), f'{c["success"]} passed, {len(bad)} failed, {c["skipped"]} skipped', " ".join(bad))
+PY
+)
+    leg "clap-validator, $n" "${result%% *}" "${result#* }"
+  done
+}
+
+vst3_validator() {
+  local tool="$build/plugins/validator-build/bin/Debug/validator" b
+  for b in "$bundles"/*.vst3; do
+    local n log line status=0
+    n=$(basename "$b" .vst3)
+    log="$reports/vst3-validator-$n.log"
+    "$tool" -e "$b" > "$log" 2>&1 || status=1
+    line=$(grep -E '^Result:' "$log" | tail -1)
+    if [ $status = 0 ] && [[ $line == *" 0 tests failed"* ]]; then leg "VST3 validator -e, $n" PASS "${line#Result: }"; else leg "VST3 validator -e, $n" FAIL "$line"; fi
+  done
+}
+
+pluginval() {  # format bundles...
+  local tool="$build/tools/pluginval/pluginval.app/Contents/MacOS/pluginval" format=$1 b
+  shift
+  for b in "$@"; do
+    local n
+    n=$(basename "$b")
+    run "pluginval $strictness, $format $n" "$reports/pluginval-$format-$n.log" "$tool" --strictness-level "$strictness" --skip-gui-tests \
+      --vst3validator "$build/plugins/validator-build/bin/Debug/validator" --validate "$b"
+  done
+}
+
+install_plugins() {
+  local plugins="$HOME/Library/Audio/Plug-Ins" pair b
+  for pair in clap:CLAP vst3:VST3 component:Components; do
+    mkdir -p "$plugins/${pair#*:}"
+    for b in "$bundles"/*."${pair%%:*}"; do
+      rm -rf "${plugins:?}/${pair#*:}/$(basename "$b")"
+      ditto "$b" "$plugins/${pair#*:}/$(basename "$b")"
+    done
+  done
+  killall -9 AudioComponentRegistrar 2> /dev/null
+}
+
+registered() {  # waits up to 30 s for macOS to list every Squatch AU
+  local want n i
+  want=$(find "$bundles" -maxdepth 1 -name '*.component' | wc -l | tr -d ' ')
+  for i in $(seq 1 15); do
+    n=$(auval -a 2> /dev/null | awk '$3 == "SqSt"' | wc -l | tr -d ' ')
+    [ "$n" = "$want" ] && { leg "AU registration" PASS "$n of $want listed by auval -a (after ${i} tries)"; return 0; }
+    sleep 2
+  done
+  leg "AU registration" FAIL "$n of $want listed by auval -a"
+  return 1
+}
+
+auval_all() {
+  local plugins="$HOME/Library/Audio/Plug-Ins/Components" code
+  for code in $(auval -a 2> /dev/null | awk '$3 == "SqSt" {print $1":"$2}'); do
+    local type=${code%%:*} sub=${code#*:}
+    run "auval -strict, $type $sub SqSt" "$reports/auval-$sub.log" auval -strict -v "$type" "$sub" SqSt
+  done
+  pluginval AU "$plugins"/Squatch*.component
+}
+
+main() {
+  "$root/tools/fetch-plugin-deps" > "$reports/fetch.log" 2>&1 || { leg "pinned dependencies" BLOCKED "(see build/reports/fetch.log)"; exit 2; }
+  leg "pinned dependencies" PASS
+  run "contracts current" "$reports/contracts.log" "$root/tools/build-contracts" --check
+  if configure "$build/plugins" -DCMAKE_BUILD_TYPE=Release && cmake --build "$build/plugins" --target vst3_validator > "$reports/vst3-validator-build.log" 2>&1; then
+    leg "bundles (CLAP, VST3, AUv2) and VST3 validator" PASS "$(find "$bundles" -maxdepth 1 -name 'Squatch*' | wc -l | tr -d ' ') bundles"
+  else
+    leg "bundles (CLAP, VST3, AUv2) and VST3 validator" FAIL "(see build/plugins.build.log)"
+    exit 1
+  fi
+  run "test host, release, linked" "$reports/host-release.log" "$build/plugins/squatch-clap-host"
+  run "test host, release, built .clap bundles" "$reports/host-release-bundles.log" "$build/plugins/squatch-clap-host" --bundle "$bundles"/*.clap
+  local san="-fsanitize=address,undefined -fno-sanitize-recover=all -fno-omit-frame-pointer"
+  sanitizer_leg asan "$build/plugins-asan" -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS="$san" -DCMAKE_C_FLAGS="$san" \
+    -DCMAKE_EXE_LINKER_FLAGS="$san" -DCMAKE_SHARED_LINKER_FLAGS="$san"
+  sanitizer_leg tsan "$build/plugins-tsan" -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS="-fsanitize=thread -O1" -DCMAKE_EXE_LINKER_FLAGS=-fsanitize=thread
+  if [ -x "$llvm/bin/clang++" ]; then
+    sanitizer_leg rtsan "$build/plugins-rtsan" -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_OSX_DEPLOYMENT_TARGET=15.0 \
+      -DCMAKE_C_COMPILER="$llvm/bin/clang" -DCMAKE_CXX_COMPILER="$llvm/bin/clang++" -DCMAKE_CXX_FLAGS=-fsanitize=realtime \
+      -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=realtime -L$llvm/lib/c++ -Wl,-rpath,$llvm/lib/c++"
+  else
+    leg "test host, rtsan" BLOCKED "(no clang++ at $llvm: brew install llvm)"
+  fi
+  clap_validator
+  vst3_validator
+  pluginval VST3 "$bundles"/*.vst3
+  if [ "${SQUATCH_NO_INSTALL:-}" = 1 ]; then
+    leg "auval and pluginval AU" SKIP "(SQUATCH_NO_INSTALL=1: AU validation needs the bundles installed)"
+  else
+    install_plugins
+    leg "installed into $HOME/Library/Audio/Plug-Ins" PASS
+    registered && auval_all
+  fi
+  printf '\nplugins-check: %s (summary: build/reports/plugins-check.md)\n' "$([ $failed = 0 ] && echo PASS || echo FAIL)"
+  exit $failed
+}
+
+main

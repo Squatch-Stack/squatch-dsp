@@ -1,6 +1,9 @@
-Synthetic matrix: 12 notes E1..E6 x 8 trials, detune uniform ±50 c, 48 kHz input. Steady window 0.5-1.5 s after the pluck unless stated.
+# Squatch Tuner: synthetic accuracy
 
-### clean: harmonic, no glide, 60 dB SNR
+Synthetic matrix: 12 notes E1..E6 x 8 trials, detune uniform ±50 c, 48 kHz input.
+Steady window 0.5-1.5 s after the pluck unless stated.
+
+## clean: harmonic, no glide, 60 dB SNR
 
 | algorithm | bias c | RMS c | p95 abs c | jitter c | lock ±1c p50/p90 ms | never ±1c | lock ±0.1c p50/p90 ms | never ±0.1c | gross >50c | coverage |
 |---|---|---|---|---|---|---|---|---|---|---|
@@ -14,7 +17,7 @@ Synthetic matrix: 12 notes E1..E6 x 8 trials, detune uniform ±50 c, 48 kHz inpu
 | YIN (48k, median-5) | 0.056 | 0.128 | 0.299 | 0.034 | 49 / 60 | 0% | 1447 / 1500 | 33% | 0.00% | 100% |
 | MPM (48k, median-5) | -0.002 | 0.032 | 0.072 | 0.026 | 39 / 65 | 0% | 65 / 1479 | 23% | 0.00% | 100% |
 
-#### Per note (clean): RMS steady error c / lock ±1 c p50 ms
+### Per note (clean): RMS steady error c / lock ±1 c p50 ms
 
 | note | YIN (12k, median-5) | MPM (12k, median-5) | MPM + phase vocoder | Squatch strobe (hz, now) | Squatch strobe (steadyHz) | Squatch strobe, no B fit | Squatch strobe, line fit only | YIN (48k, median-5) | MPM (48k, median-5) |
 |---|---|---|---|---|---|---|---|---|---|
@@ -31,7 +34,7 @@ Synthetic matrix: 12 notes E1..E6 x 8 trials, detune uniform ±50 c, 48 kHz inpu
 | E5 | 1.820 / 52 | 0.704 / 543 | 0.039 / 12 | 0.000 / 20 | 0.000 / 20 | 0.000 / 20 | 0.000 / 20 | 0.121 / 44 | 0.011 / 7 |
 | E6 | 9.318 / - | 4.201 / 876 | 0.072 / 7 | 0.000 / 17 | 0.000 / 17 | 0.000 / 17 | 0.000 / 17 | 0.419 / 33 | 0.102 / 7 |
 
-### guitar: B 3e-5..3e-4, pluck/pickup comb, T60 3-8 s, 3 c glide, 60 dB SNR, pick noise
+## guitar: B 3e-5..3e-4, pluck/pickup comb, T60 3-8 s, 3 c glide, 60 dB SNR, pick noise
 
 | algorithm | bias c | RMS c | p95 abs c | jitter c | lock ±1c p50/p90 ms | never ±1c | lock ±0.1c p50/p90 ms | never ±0.1c | gross >50c | coverage |
 |---|---|---|---|---|---|---|---|---|---|---|
@@ -45,7 +48,7 @@ Synthetic matrix: 12 notes E1..E6 x 8 trials, detune uniform ±50 c, 48 kHz inpu
 | YIN (48k, median-5) | 1.068 | 1.306 | 2.395 | 0.257 | 911 / 1397 | 27% | 1484 / 1484 | 99% | 0.00% | 100% |
 | MPM (48k, median-5) | 0.996 | 1.233 | 2.346 | 0.255 | 892 / 1341 | 22% | - / - | 100% | 0.00% | 100% |
 
-#### Per note (guitar): RMS steady error c / lock ±1 c p50 ms
+### Per note (guitar): RMS steady error c / lock ±1 c p50 ms
 
 | note | YIN (12k, median-5) | MPM (12k, median-5) | MPM + phase vocoder | Squatch strobe (hz, now) | Squatch strobe (steadyHz) | Squatch strobe, no B fit | Squatch strobe, line fit only | YIN (48k, median-5) | MPM (48k, median-5) |
 |---|---|---|---|---|---|---|---|---|---|
@@ -62,7 +65,7 @@ Synthetic matrix: 12 notes E1..E6 x 8 trials, detune uniform ±50 c, 48 kHz inpu
 | E5 | 3.246 / - | 1.395 / 361 | 0.019 / 361 | 0.041 / 337 | 0.188 / 465 | 1.319 / 983 | 0.188 / 465 | 1.759 / 908 | 1.622 / 817 |
 | E6 | 12.660 / - | 5.210 / - | 0.020 / 524 | 0.039 / 476 | 0.227 / 655 | 0.627 / 929 | 0.227 / 655 | 1.482 / 1148 | 1.046 / 1175 |
 
-### weak-fund: guitar with the fundamental 20 dB down
+## weak-fund: guitar with the fundamental 20 dB down
 
 | algorithm | bias c | RMS c | p95 abs c | jitter c | lock ±1c p50/p90 ms | never ±1c | lock ±0.1c p50/p90 ms | never ±0.1c | gross >50c | coverage |
 |---|---|---|---|---|---|---|---|---|---|---|
@@ -76,7 +79,7 @@ Synthetic matrix: 12 notes E1..E6 x 8 trials, detune uniform ±50 c, 48 kHz inpu
 | YIN (48k, median-5) | 98.879 | 314.740 | 1104.843 | 0.280 | 935 / 1291 | 41% | 1487 / 1493 | 98% | 8.05% | 100% |
 | MPM (48k, median-5) | 7.634 | 64.534 | 2.692 | 0.254 | 908 / 1278 | 27% | 1492 / 1498 | 98% | 0.49% | 100% |
 
-#### Per note (weak-fund): RMS steady error c / lock ±1 c p50 ms
+### Per note (weak-fund): RMS steady error c / lock ±1 c p50 ms
 
 | note | YIN (12k, median-5) | MPM (12k, median-5) | MPM + phase vocoder | Squatch strobe (hz, now) | Squatch strobe (steadyHz) | Squatch strobe, no B fit | Squatch strobe, line fit only | YIN (48k, median-5) | MPM (48k, median-5) |
 |---|---|---|---|---|---|---|---|---|---|
@@ -93,7 +96,7 @@ Synthetic matrix: 12 notes E1..E6 x 8 trials, detune uniform ±50 c, 48 kHz inpu
 | E5 | 3.033 / - | 1.524 / 487 | 0.015 / 556 | 0.040 / 521 | 0.227 / 721 | 1.273 / 1036 | 0.227 / 721 | 1.478 / 993 | 1.365 / 908 |
 | E6 | 10.024 / - | 672.455 / 151 | 672.389 / 636 | 0.038 / 343 | 0.202 / 471 | 0.792 / 753 | 0.202 / 471 | 1.707 / 967 | 1.266 / 863 |
 
-### noisy: guitar at 30 dB SNR plus 60/180 Hz hum at -30 dB
+## noisy: guitar at 30 dB SNR plus 60/180 Hz hum at -30 dB
 
 | algorithm | bias c | RMS c | p95 abs c | jitter c | lock ±1c p50/p90 ms | never ±1c | lock ±0.1c p50/p90 ms | never ±0.1c | gross >50c | coverage |
 |---|---|---|---|---|---|---|---|---|---|---|
@@ -107,7 +110,7 @@ Synthetic matrix: 12 notes E1..E6 x 8 trials, detune uniform ±50 c, 48 kHz inpu
 | YIN (48k, median-5) | -40.772 | 117.205 | 301.703 | 7.639 | 1495 / 1500 | 95% | - / - | 100% | 5.71% | 90% |
 | MPM (48k, median-5) | -11.618 | 55.768 | 82.177 | 2.404 | 1468 / 1500 | 71% | 1495 / 1499 | 97% | 1.34% | 92% |
 
-#### Per note (noisy): RMS steady error c / lock ±1 c p50 ms
+### Per note (noisy): RMS steady error c / lock ±1 c p50 ms
 
 | note | YIN (12k, median-5) | MPM (12k, median-5) | MPM + phase vocoder | Squatch strobe (hz, now) | Squatch strobe (steadyHz) | Squatch strobe, no B fit | Squatch strobe, line fit only | YIN (48k, median-5) | MPM (48k, median-5) |
 |---|---|---|---|---|---|---|---|---|---|
@@ -124,7 +127,7 @@ Synthetic matrix: 12 notes E1..E6 x 8 trials, detune uniform ±50 c, 48 kHz inpu
 | E5 | 432.667 / - | 304.491 / 961 | 308.045 / 1471 | 0.045 / 391 | 0.208 / 540 | 0.784 / 519 | 0.208 / 540 | 241.034 / - | 1.289 / 1265 |
 | E6 | 10.081 / - | 5.116 / 247 | 0.714 / 1495 | 0.038 / 527 | 0.245 / 732 | 0.402 / 823 | 0.245 / 732 | 1.440 / 1497 | 0.844 / 1420 |
 
-### hard-pluck: guitar with a 15 cent pitch glide
+## hard-pluck: guitar with a 15 cent pitch glide
 
 | algorithm | bias c | RMS c | p95 abs c | jitter c | lock ±1c p50/p90 ms | never ±1c | lock ±0.1c p50/p90 ms | never ±0.1c | gross >50c | coverage |
 |---|---|---|---|---|---|---|---|---|---|---|
@@ -138,7 +141,7 @@ Synthetic matrix: 12 notes E1..E6 x 8 trials, detune uniform ±50 c, 48 kHz inpu
 | YIN (48k, median-5) | 1.251 | 1.473 | 2.821 | 0.388 | 1265 / 1489 | 57% | - / - | 100% | 0.00% | 100% |
 | MPM (48k, median-5) | 1.148 | 1.381 | 2.799 | 0.359 | 1212 / 1479 | 56% | 1415 / 1415 | 99% | 0.00% | 100% |
 
-#### Per note (hard-pluck): RMS steady error c / lock ±1 c p50 ms
+### Per note (hard-pluck): RMS steady error c / lock ±1 c p50 ms
 
 | note | YIN (12k, median-5) | MPM (12k, median-5) | MPM + phase vocoder | Squatch strobe (hz, now) | Squatch strobe (steadyHz) | Squatch strobe, no B fit | Squatch strobe, line fit only | YIN (48k, median-5) | MPM (48k, median-5) |
 |---|---|---|---|---|---|---|---|---|---|
@@ -155,7 +158,7 @@ Synthetic matrix: 12 notes E1..E6 x 8 trials, detune uniform ±50 c, 48 kHz inpu
 | E5 | 3.591 / - | 1.422 / 1356 | 0.057 / 833 | 0.200 / 868 | 0.977 / 1015 | 1.136 / 911 | 0.977 / 1015 | 1.610 / 999 | 1.431 / 935 |
 | E6 | 12.102 / - | 6.107 / 743 | 0.061 / 959 | 0.203 / 833 | 0.940 / 1089 | 0.441 / 1073 | 0.940 / 1089 | 1.591 / 1191 | 1.112 / 1015 |
 
-### short: guitar with T60 0.6 s (dead string, high fret); window 0.25-0.5 s
+## short: guitar with T60 0.6 s (dead string, high fret); window 0.25-0.5 s
 
 | algorithm | bias c | RMS c | p95 abs c | jitter c | lock ±1c p50/p90 ms | never ±1c | lock ±0.1c p50/p90 ms | never ±0.1c | gross >50c | coverage |
 |---|---|---|---|---|---|---|---|---|---|---|
@@ -169,7 +172,7 @@ Synthetic matrix: 12 notes E1..E6 x 8 trials, detune uniform ±50 c, 48 kHz inpu
 | YIN (48k, median-5) | 2.036 | 3.048 | 6.704 | 0.755 | 188 / 439 | 66% | 415 / 421 | 98% | 0.20% | 74% |
 | MPM (48k, median-5) | 0.804 | 1.081 | 2.388 | 0.569 | 156 / 441 | 55% | 417 / 441 | 94% | 0.00% | 74% |
 
-#### Per note (short): RMS steady error c / lock ±1 c p50 ms
+### Per note (short): RMS steady error c / lock ±1 c p50 ms
 
 | note | YIN (12k, median-5) | MPM (12k, median-5) | MPM + phase vocoder | Squatch strobe (hz, now) | Squatch strobe (steadyHz) | Squatch strobe, no B fit | Squatch strobe, line fit only | YIN (48k, median-5) | MPM (48k, median-5) |
 |---|---|---|---|---|---|---|---|---|---|

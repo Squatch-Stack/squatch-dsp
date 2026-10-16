@@ -1,0 +1,264 @@
+# SPDX-License-Identifier: MIT
+# A release: pushing a signed tag v* builds, scans, checksums and attests the assets, and creates a DRAFT
+# GitHub release for the maintainer to publish. Nothing is published by this workflow.
+#
+#   source + library (Linux)  ->  plugins (macOS, CLAP/VST3/AUv2)  ->  sign (skipped until the Developer ID
+#   secrets exist)  ->  SHA256SUMS + build-provenance attestation + draft release
+#
+# Plugins are ad-hoc signed until the secrets named in tools/release-signing are set in the
+# Environment `release`; then the `sign` job signs with Developer ID, builds a signed installer,
+# notarizes (the installer is stapled; a plug-in folder cannot be) and verifies. With none of them set that job skips signing, says so in its log and
+# in the release notes. The attestation covers the final signed and notarized files.
+# Actions are pinned to full commit SHAs.
+name: Release
+on:
+  push:
+    tags: ['v*']
+permissions:
+  contents: read
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+env:
+  TAG: ${{ github.ref_name }}
+jobs:
+  verify-tag:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: The tag is a signed tag that GitHub shows as Verified
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          ref=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG")
+          [ "$(jq -r .object.type <<<"$ref")" = tag ] || { echo "::error::$TAG is a lightweight tag: create it with git tag -s"; exit 1; }
+          tag=$(gh api "repos/$GITHUB_REPOSITORY/git/tags/$(jq -r .object.sha <<<"$ref")")
+          [ "$(jq -r .verification.verified <<<"$tag")" = true ] || {
+            echo "::error::$TAG is not verified: $(jq -r .verification.reason <<<"$tag")"; exit 1; }
+
+  source:
+    needs: verify-tag
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Published files match EXPORTED
+        run: python3 tools/export-public dsp --verify .
+      - name: gitleaks 8.30.1 (pinned release, checksum checked)
+        run: |
+          set -euo pipefail
+          curl -fsSL -o gl.tgz https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz
+          echo "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb  gl.tgz" | sha256sum -c -
+          mkdir "$RUNNER_TEMP/gl" && tar -xzf gl.tgz -C "$RUNNER_TEMP/gl" gitleaks && rm gl.tgz
+          "$RUNNER_TEMP/gl/gitleaks" dir . --no-banner --redact
+      - name: The release scanner passes its own tests, then the tree is scanned
+        run: |
+          python3 tools/test-release-scan
+          python3 tools/test-release-signing
+          python3 tools/release-scan .
+      - name: Headers, library and tests (ASan + UBSan, TSan)
+        run: |
+          sudo sysctl -w vm.mmap_rnd_bits=28
+          make headers lib test CXX=clang++
+      - name: Release library (build paths mapped out) and source archive
+        run: |
+          set -euo pipefail
+          make lib BUILD=build-release CXX="clang++ -ffile-prefix-map=$PWD=."
+          python3 tools/release-scan build-release/libsquatch-dsp.a
+          mkdir dist
+          cp build-release/libsquatch-dsp.a "dist/libsquatch-dsp-$TAG-linux-x86_64.a"
+          git archive --format=tar.gz --prefix="squatch-dsp-${TAG#v}/" -o "dist/squatch-dsp-$TAG-source.tar.gz" "$GITHUB_SHA"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: source
+          path: dist/*
+          if-no-files-found: error
+
+  plugins:
+    needs: verify-tag
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Pinned plugin dependencies (hosts/clap/deps.lock; each commit checked)
+        run: |
+          cmake --version | head -1; ninja --version
+          tools/fetch-plugin-deps --repos-only
+      - name: Build CLAP, VST3 and AUv2, universal, build paths mapped out
+        run: |
+          set -euo pipefail
+          MAP="-ffile-prefix-map=$PWD=. -fdebug-prefix-map=$PWD=."
+          cmake -S hosts/clap -B build/plugins -G Ninja -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" \
+            -DCMAKE_C_FLAGS="$MAP" -DCMAKE_CXX_FLAGS="$MAP" -DCMAKE_OBJC_FLAGS="$MAP" -DCMAKE_OBJCXX_FLAGS="$MAP"
+          cmake --build build/plugins
+          ls build/plugins/bundles
+          for ext in clap vst3 component; do
+            n=$(find build/plugins/bundles -maxdepth 1 -name "*.$ext" | wc -l); echo "$ext: $n bundles"
+            [ "$n" -ge 10 ] || { echo "::error::expected at least 10 .$ext bundles"; exit 1; }
+          done
+      - name: Scan the bundles, and check architectures and the ad-hoc signature
+        run: |
+          set -euo pipefail
+          python3 tools/release-scan build/plugins/bundles
+          for b in build/plugins/bundles/*; do
+            exe="$b/Contents/MacOS/$(defaults read "$PWD/$b/Contents/Info" CFBundleExecutable)"
+            archs=$(lipo -archs "$exe"); case "$archs" in *arm64*x86_64*|*x86_64*arm64*) ;; *) echo "::error::$b is $archs"; exit 1;; esac
+            codesign --verify --strict "$b"
+          done
+      - name: Package (unsigned), plus the macOS library
+        run: |
+          set -euo pipefail
+          mkdir -p stage/CLAP stage/VST3 stage/Components dist
+          for p in build/plugins/bundles/*.clap; do ditto "$p" "stage/CLAP/$(basename "$p")"; done
+          for p in build/plugins/bundles/*.vst3; do ditto "$p" "stage/VST3/$(basename "$p")"; done
+          for p in build/plugins/bundles/*.component; do ditto "$p" "stage/Components/$(basename "$p")"; done
+          ditto -c -k --keepParent stage dist/plugins-unsigned.zip
+          make lib BUILD=build-release CXX="clang++ -ffile-prefix-map=$PWD=."
+          python3 tools/release-scan build-release/libsquatch-dsp.a
+          cp build-release/libsquatch-dsp.a "dist/libsquatch-dsp-$TAG-macos-arm64.a"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: plugins-unsigned
+          path: dist/plugins-unsigned.zip
+          if-no-files-found: error
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: library-macos
+          path: dist/libsquatch-dsp-*-macos-arm64.a
+          if-no-files-found: error
+
+  # Signs, notarizes and verifies in the Environment `release`: it has a required reviewer (every run waits
+  # for the maintainer's approval) and only tag refs may use it. The certificates and the notarization key
+  # are that environment's secrets (tools/release-signing says which); with none of them set the ad-hoc
+  # build passes through, labelled as such. A temporary keychain holds the certificates and is deleted.
+  sign:
+    needs: plugins
+    runs-on: macos-15
+    environment: release
+    outputs:
+      signing: ${{ steps.check.outputs.signing }}
+    env:
+      MACOS_APP_CERT_P12: ${{ secrets.MACOS_APP_CERT_P12 }}
+      MACOS_INSTALLER_CERT_P12: ${{ secrets.MACOS_INSTALLER_CERT_P12 }}
+      MACOS_CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
+      ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: plugins-unsigned
+      - name: Are the signing secrets set? (skips cleanly when none are)
+        id: check
+        run: |
+          rc=0; tools/release-signing check --installer --github-output "$GITHUB_OUTPUT" || rc=$?
+          case $rc in 0) ;; 10) echo "::notice title=Signing skipped::No signing secrets: the plugins are ad-hoc signed only. Set them in the Environment 'release'.";; *) exit "$rc";; esac
+      - name: Temporary keychain with both Developer ID certificates
+        if: steps.check.outputs.signing == 'yes'
+        run: tools/release-signing keychain --installer
+      - name: Sign the bundles (Developer ID Application, hardened runtime, secure timestamp)
+        if: steps.check.outputs.signing == 'yes'
+        run: |
+          set -euo pipefail
+          ditto -x -k plugins-unsigned.zip .
+          tools/release-signing sign stage/CLAP/*.clap stage/VST3/*.vst3 stage/Components/*.component
+      - name: Notarize the bundles and zip them (stapler cannot staple a plug-in folder; the installer is stapled)
+        if: steps.check.outputs.signing == 'yes'
+        run: |
+          set -euo pipefail
+          mkdir -p out notarize
+          ditto -c -k --keepParent stage notarize/bundles.zip
+          tools/release-signing notarize notarize/bundles.zip
+          ditto -c -k --keepParent stage "out/squatch-dsp-plugins-$TAG-macos.zip"
+      - name: Installer (Developer ID Installer), notarized and stapled
+        if: steps.check.outputs.signing == 'yes'
+        run: |
+          set -euo pipefail
+          # The installer lays the notarized bundles down in the system plug-in folders.
+          for pair in CLAP:CLAP VST3:VST3 Components:Components; do
+            mkdir -p "pkgroot/Library/Audio/Plug-Ins/${pair#*:}"; ditto "stage/${pair%%:*}" "pkgroot/Library/Audio/Plug-Ins/${pair#*:}"
+          done
+          tools/release-signing pkg --root pkgroot --identifier cc.squatch.dsp-plugins --version "${TAG#v}" \
+            --install-location / --out "out/squatch-dsp-plugins-$TAG-macos.pkg"
+          tools/release-signing notarize "out/squatch-dsp-plugins-$TAG-macos.pkg"
+      - name: Verify what will ship (spctl, pkgutil, stapler, codesign, auval -strict)
+        if: steps.check.outputs.signing == 'yes'
+        run: |
+          set -euo pipefail
+          tools/release-signing verify "out/squatch-dsp-plugins-$TAG-macos.pkg" stage/CLAP/*.clap stage/VST3/*.vst3 stage/Components/*.component
+          tools/release-signing verify-au --manufacturer SqSt stage/Components
+      - name: Ad-hoc build passes through, named for what it is
+        if: steps.check.outputs.signing != 'yes'
+        run: |
+          mkdir out
+          cp plugins-unsigned.zip "out/squatch-dsp-plugins-$TAG-macos-adhoc-unsigned.zip"
+      - name: Delete the temporary keychain and key files
+        if: always()
+        run: tools/release-signing cleanup
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: plugins
+          path: out/*
+          if-no-files-found: error
+
+  release:
+    needs: [source, sign, plugins]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write       # the draft release
+      id-token: write       # the attestation's signing identity
+      attestations: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          path: dist
+          merge-multiple: true
+          pattern: '{source,library-macos,plugins}'
+      - name: Checksums
+        working-directory: dist
+        run: |
+          set -euo pipefail
+          ls -l
+          sha256sum -- * > SHA256SUMS
+          cat SHA256SUMS
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: dist/*
+      - name: Draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SIGNING: ${{ needs.sign.outputs.signing }}
+        run: |
+          set -euo pipefail
+          if [ "$SIGNING" = yes ]; then
+            status="The plugins and installer are signed with Developer ID and notarized."
+          else
+            status="**The plugins are ad-hoc signed and not notarized** (Developer ID certificates are not installed yet), so macOS will warn on first launch. This release is a draft until that is done."
+          fi
+          cat > notes.md <<NOTES
+          Squatch DSP $TAG.
+
+          - \`squatch-dsp-$TAG-source.tar.gz\`: the source.
+          - \`libsquatch-dsp-$TAG-linux-x86_64.a\`, \`libsquatch-dsp-$TAG-macos-arm64.a\`: the core library.
+          - \`squatch-dsp-plugins-$TAG-macos*\`: Squatch Tuner, Gate, Limiter, EQ, Cab, Trail OD, Claw, Crunch, Comp and Hall as CLAP, VST3 and AUv2 (universal: Apple silicon and Intel).
+
+          $status
+
+          Verify what you downloaded:
+
+          \`\`\`sh
+          shasum -a 256 -c SHA256SUMS            # sha256sum -c on Linux
+          gh attestation verify FILE -R $GITHUB_REPOSITORY
+          \`\`\`
+
+          The tag $TAG is SSH-signed and shows Verified on GitHub. The attestation names this repository's release workflow and the tagged commit.
+          NOTES
+          flags=(--draft --verify-tag --title "Squatch DSP $TAG" --notes-file notes.md)
+          case "$TAG" in *-*) flags+=(--prerelease);; esac
+          gh release create "$TAG" dist/* "${flags[@]}"

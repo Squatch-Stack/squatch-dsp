@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: MIT
+# Fetches the pinned third-party code and validators named in hosts/clap/deps.lock:
+#   repos -> build/deps/<name> at exactly the pinned commit (shallow; submodules as recorded)
+#   tools -> build/tools/<name>, after checking the archive's sha256
+# Already-fetched pins are left alone, so this is cheap to run before every plugin build.
+# Usage: tools/fetch-plugin-deps [--tools-only | --repos-only]
+set -euo pipefail
+
+root=$(cd "$(dirname "$0")/.." && pwd)
+lock="$root/hosts/clap/deps.lock"
+deps="$root/build/deps"
+tools="$root/build/tools"
+mode=${1:-all}
+mkdir -p "$deps" "$tools"
+
+fetch_repo() {  # name url commit note...
+  local name=$1 url=$2 commit=$3 note=$4 dir="$deps/$1"
+  if [ -d "$dir/.git" ] && [ "$(git -C "$dir" rev-parse HEAD 2>/dev/null)" = "$commit" ]; then
+    echo "deps: $name at ${commit:0:12} (present)"
+    return
+  fi
+  rm -rf "$dir"
+  git init -q "$dir"
+  git -C "$dir" remote add origin "$url"
+  git -C "$dir" fetch -q --depth 1 origin "$commit"
+  git -C "$dir" -c advice.detachedHead=false checkout -q FETCH_HEAD
+  [ "$(git -C "$dir" rev-parse HEAD)" = "$commit" ] || { echo "deps: $name is not at $commit" >&2; exit 1; }
+  case $note in
+    *submodules*)
+      local subs=${note#*submodules }
+      # shellcheck disable=SC2086 # the list is deliberately split into words
+      git -C "$dir" submodule update -q --init --depth 1 -- $subs ;;
+  esac
+  echo "deps: $name at ${commit:0:12} (fetched)"
+}
+
+fetch_tool() {  # name url sha256
+  local name=$1 url=$2 sum=$3 dir="$tools/$1" zip
+  if [ -f "$dir/.sha256" ] && [ "$(cat "$dir/.sha256")" = "$sum" ]; then
+    echo "tools: $name (present)"
+    return
+  fi
+  rm -rf "$dir"
+  mkdir -p "$dir"
+  zip="$dir/download.zip"
+  curl -fsSL -o "$zip" "$url"
+  echo "$sum  $zip" | shasum -a 256 -c - >/dev/null || { echo "tools: $name: sha256 mismatch" >&2; exit 1; }
+  (cd "$dir" && unzip -q download.zip && rm download.zip)
+  for t in "$dir"/*.tar.gz; do [ -e "$t" ] && (cd "$dir" && tar xzf "$t" && rm "$t"); done
+  xattr -dr com.apple.quarantine "$dir" 2>/dev/null || true
+  echo "$sum" > "$dir/.sha256"
+  echo "tools: $name (fetched)"
+}
+
+while read -r kind name where pin note; do
+  case $kind in
+    repo) [ "$mode" = --tools-only ] || fetch_repo "$name" "$where" "$pin" "$note" ;;
+    tool) [ "$mode" = --repos-only ] || fetch_tool "$name" "$where" "$pin" ;;
+  esac
+done < <(grep -E '^(repo|tool) ' "$lock")

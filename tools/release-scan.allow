@@ -1,0 +1,5 @@
+# Exceptions to tools/release-scan: `path-glob  regex`. A hit is forgiven only if the file matches the
+# glob and the line matches the regex.
+# The IDMT-SMT-Guitar dataset names its guitars; these lines quote the dataset's own labels.
+blocks/tuner/bench/quality/*  Ibanez Power Strat|ibanez-power-strat
+bench/quality/*               Ibanez Power Strat|ibanez-power-strat

@@ -24,7 +24,7 @@ from pathlib import Path
 HOSTS = Path(__file__).resolve().parent.parent
 ROOT = HOSTS.parent
 SLOT = re.compile(r"<!-- slot:(\w+) -->\n?(.*?)\n?<!-- /slot:\1 -->", re.S)
-WEB_FILES = ["tuner.css", "tokens.css", "strobe.js", "tuner-view.js", "favicon.svg"]
+WEB_FILES = ["tuner.css", "tokens.css", "strobe.js", "hold.js", "tuner-view.js", "favicon.svg"]
 WASM_FILES = ["demo.js", "demo.css", "worklet.js"]
 # The core's own rules (C++17, no exceptions, no RTTI), fixed memory, and no debug info, so the
 # module carries no build paths and the same sources give the same bytes.

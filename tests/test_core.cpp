@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: MIT
-// The core: arena, smoother, parameter descriptors, spans, queue, denormals and the chain.
+// The core: arena, smoother, parameter descriptors, spans, queue, denormals, the snapshot handoff
+// and the chain.
 #include <cstdint>
 #include <squatch/dsp/arena.hpp>
 #include <squatch/dsp/chain.hpp>
 #include <squatch/dsp/denormal.hpp>
+#include <squatch/dsp/latest.hpp>
 #include <squatch/dsp/param.hpp>
 #include <squatch/dsp/param_queue.hpp>
 
@@ -102,6 +104,14 @@ TEST(denormalGuardFlushes) {
 
 namespace {
 
+// Two fields, so a value the producer is writing shows up as a half-written one.
+struct Reading {
+  long seq = 0;
+  long twice = 0;
+};
+
+bool intact(const Reading& r, long seq) { return r.seq == seq && r.twice == 2 * seq; }
+
 // Adds a constant and reports a latency: enough to test the chain's plumbing.
 struct Offset final : Block {
   float add = 0.0f;
@@ -115,6 +125,7 @@ struct Offset final : Block {
   }
   void reset() override { calls = 0; }
   void set(ParamId, float v) override { add = v; }
+  float get(ParamId) const override { return add; }
   int latency() const override { return delay; }
 };
 
@@ -143,4 +154,40 @@ TEST(chainRunsInSeriesAndSplitsLongCalls) {
   Chain empty;
   empty.process(in, out, 100);
   CHECK(out[42] == 42.0f, "an empty chain passes through");
+}
+
+TEST(latestHandsOverTheNewestValueWhole) {
+  Latest<Reading> box;
+  CHECK(!box.update(), "nothing to take before the first publish");
+  box.back() = Reading{1, 2};
+  box.publish();
+  CHECK(box.update(), "a published value is there to take");
+  CHECK(intact(box.front(), 1), "the value that was published");
+  CHECK(!box.update(), "the same value is not taken twice");
+  const Reading& held = box.front();  // what a display is showing
+  for (long i = 2; i <= 5; ++i) box.back() = Reading{i, 2 * i}, box.publish();  // read too slowly to keep up
+  CHECK(intact(held, 1), "the consumer's value is untouched while the producer publishes");
+  CHECK(box.update() && intact(box.front(), 5), "only the newest survives");
+  box.back() = Reading{6, 12};
+  box.publish();
+  CHECK(intact(held, 1), "still untouched: the producer is not writing the slot in front");
+  CHECK(box.update() && intact(box.front(), 6), "and the next value arrives whole");
+}
+
+TEST(latestNeverGoesBackwards) {
+  Latest<Reading> box;
+  long last = 0;
+  int torn = 0, stale = 0;
+  for (long i = 1; i <= 20000; ++i) {  // a display that takes a value only every fifth publish
+    box.back() = Reading{i, 2 * i};
+    box.publish();
+    if (i % 5 || !box.update()) continue;
+    const Reading& f = box.front();
+    torn += f.twice != 2 * f.seq;              // half written
+    stale += f.seq <= last || f.seq > i;       // older than the one before it, or not published yet
+    last = f.seq;
+  }
+  CHECK(torn == 0, "%d values arrived half written", torn);
+  CHECK(stale == 0, "%d values older than the last one, or from the future", stale);
+  CHECK(last == 20000, "the last publish is the last value taken (%ld)", last);
 }
