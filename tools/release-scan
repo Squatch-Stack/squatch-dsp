@@ -11,6 +11,11 @@ found as well as one in a comment. A .zip is unpacked in memory and scanned memb
 
 Private patterns (code names, lineage) live in tools/release-scan.private, which is not published; the
 public script carries only generic ones. The export guard checks the source for them before every export.
+The owner's private terms (name, usernames, emails, domains, home paths) live outside every repo, in the
+privacy scanner (squatch-privacy, in the owner's bin directory). When that scanner is on this machine, every file name, text
+file, binary string and UTF-16 string is checked against it too, and a hit is reported as
+"owner private term #N" with the file, never with the text. It is not there in CI, so the check runs locally,
+before a release is tagged. If the scanner is there and cannot load, the scan fails (exit 2).
 
 Allowlist (default tools/release-scan.allow, next to this script): one `path-glob  regex` per line,
 `#` comments. A hit is forgiven only when its file matches the glob AND its line matches the regex,
@@ -22,7 +27,10 @@ Exit 0 clean, 1 findings, 2 broken scanner or bad usage. Standard library only.
 """
 import argparse
 import fnmatch
+import importlib.machinery
+import importlib.util
 import io
+import os
 import re
 import sys
 import tempfile
@@ -35,7 +43,7 @@ HERE = Path(__file__).resolve().parent
 # regex per line, stays in the development tree and is read when it is present.
 LINEAGE = r"/Users/[A-Za-z]|/home/[a-z]|\b192\.168\.|~/\.secrets"
 # Other people's marks: allowed only in a sentence the allowlist names.
-TRADEMARKS = r"\bRATs?\b|TS-?808|Tube ?Screamer|\bKlon\b|Centaur|\bProCo\b|Ibanez"
+TRADEMARKS = r"\bRATs?\b|TS-?808|Tube[ _-]?Screamer|\bTS[ _-]?Drive\b|\bKlon\b|Centaur|\bProCo\b|Ibanez"
 SECRETS = (
     r"\bgh[pousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{30,}|\bAKIA[0-9A-Z]{16}\b"
     r"|-----BEGIN [A-Z ]*PRIVATE KEY-----|\bxox[baprs]-[A-Za-z0-9-]{10,}"
@@ -47,8 +55,28 @@ if PRIVATE.is_file():
 RULES = [(re.compile(LINEAGE, re.I), "private lineage, infrastructure or path"),
          (re.compile(TRADEMARKS, re.I), "a trademark"),
          (re.compile(SECRETS), "a credential")]
+PRIVACY = Path(os.environ.get("RELEASE_SCAN_PRIVACY") or Path.home() / "bin" / "squatch-privacy")
+
+
+def load_privacy(path=PRIVACY):
+    """The owner's private-term scanner, or None where it does not exist (CI). Never prints a term."""
+    if not Path(path).is_file():
+        return None
+    os.environ.setdefault("SQ_PRIV_REEXEC", "1")          # never re-exec this script under another python
+    loader = importlib.machinery.SourceFileLoader("squatch_privacy", str(path))
+    mod = importlib.util.module_from_spec(importlib.util.spec_from_loader("squatch_privacy", loader))
+    loader.exec_module(mod)
+    sc = mod.Scanner([])                                  # strict: every class of term
+    if not sc.terms:
+        raise RuntimeError("the private term list is empty")
+    return sc
+
+
+PRIV = None   # set by main() (and by tests); scan_lines asks it about every line and every file name
 # Rules that are case-sensitive in spirit are kept loose on purpose: a false hit is reviewed, a miss ships.
 STRINGS = re.compile(rb"[\x20-\x7e]{5,}")
+U16LE = re.compile(rb"(?:[\x20-\x7e]\x00){5,}")
+U16BE = re.compile(rb"(?:\x00[\x20-\x7e]){5,}")
 SKIP_DIRS = {".git", "node_modules", "build", "__pycache__"}
 SKIP_FILES = {"release-scan", "release-scan.allow", "release-scan.private", "test-release-scan"}
 MEDIA = {".png", ".jpg", ".jpeg", ".gif", ".ico", ".webp", ".woff", ".woff2", ".wav", ".f32", ".mp3"}
@@ -67,12 +95,29 @@ def load_allow(path):
 
 def lines_of(data):
     if b"\x00" in data[:8192]:
-        return [m.group().decode("ascii") for m in STRINGS.finditer(data)]
+        runs = [m.group().decode("ascii") for m in STRINGS.finditer(data)]
+        if PRIV is not None:      # UTF-16 text (certificate subjects, Windows/Apple metadata)
+            runs += [m.group().decode("utf-16le") for m in U16LE.finditer(data)]
+            runs += [m.group().decode("utf-16be") for m in U16BE.finditer(data)]
+        return runs
     return data.decode("utf-8", errors="replace").splitlines()
 
 
+def private_hits(name, lines):
+    out = []
+    if PRIV is None:
+        return out
+    seen = set()
+    for n, line in [(0, name)] + list(enumerate(lines, 1)):
+        for lab, _cls in PRIV.scan(line):
+            if (lab, n) not in seen:
+                seen.add((lab, n))
+                out.append(f"{name}:{n or 'file name'}: owner private {lab}")
+    return out
+
+
 def scan_lines(name, lines, allow):
-    hits = []
+    hits = private_hits(name, lines)
     for n, line in enumerate(lines, 1):
         for rx, why in RULES:
             m = rx.search(line)
@@ -122,6 +167,14 @@ def main(argv):
     ap.add_argument("paths", nargs="+")
     ap.add_argument("--allow", default=str(HERE / "release-scan.allow"))
     args = ap.parse_args(argv)
+    global PRIV
+    try:
+        PRIV = load_privacy()
+    except Exception as e:                                # fail closed: a scanner that exists must work
+        print(f"release-scan: the private-term scanner is present but cannot load ({type(e).__name__}); not scanning", file=sys.stderr)
+        return 2
+    if PRIV is None:
+        print("release-scan: no private-term scanner on this machine; the owner's terms were not checked", file=sys.stderr)
     if not self_check():
         print("release-scan: the negative controls were not caught; the scanner is broken", file=sys.stderr)
         return 2

@@ -5,5 +5,5 @@
 #include <squatch/dsp/blocks/trail_od.hpp>
 
 SQUATCH_CLAP_PLUGIN(trail_od, squatch::dsp::TrailOD,
-                    "Tube-screamer-style overdrive (the browser rig's Overdrive): a clean unity path plus a boosted, band-limited, asymmetric soft-clipped branch at 4x oversampling, a DC block, a tone low-pass and level.",
+                    "Asymmetric soft-clipping overdrive (the browser rig's Overdrive): a clean unity path plus a boosted, band-limited, asymmetric soft-clipped branch at 4x oversampling, a DC block, a tone low-pass and level.",
                     "audio-effect", "distortion", "mono", "stereo")

@@ -183,5 +183,24 @@ class Notarize(unittest.TestCase):
             rs.run = real
 
 
+class Pkg(unittest.TestCase):
+    def test_the_unsigned_intermediate_is_removed_so_it_never_ships(self):
+        import types
+        with tempfile.TemporaryDirectory() as d:
+            out = Path(d) / "x.pkg"
+            real_run, real_id, rs.DRY = rs.run, rs.identity, False
+            def fake(cmd, **kw):  # pkgbuild writes its last argument; productsign writes its last argument
+                if cmd[0] in ("pkgbuild", "productsign"):
+                    Path(str(cmd[-1])).write_bytes(b"pkg")
+                return ""
+            rs.run, rs.identity = fake, (lambda kind: "Developer ID Installer: Test")
+            try:
+                rs.pkg(types.SimpleNamespace(root=d, identifier="cc.squatch.x", version="1", install_location="/", out=str(out)))
+            finally:
+                rs.run, rs.identity = real_run, real_id
+            self.assertTrue(out.exists())
+            self.assertFalse(out.with_suffix(".unsigned.pkg").exists())
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=1)
