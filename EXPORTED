@@ -1,4 +1,4 @@
-# Written by tools/export-public from the squatch-dsp development tree at 02f206b0b07f634cc31053ad73d40fd19e3c1b99.
+# Written by tools/export-public from the squatch-dsp development tree at 5c5c9d9c27e037652f018974e14c57b11768053e (hosts/jack/jack_session.hpp only).
 # Do not edit these files here: change them upstream and export again (see the README).
 b1f7ed26a41e8cc4072e6ff565f628c0ee6445997f78e28eb3e06d67ca7a3bb8  .github/FUNDING.yml
 b2b506c683f241ac98479e8ae7656cc099f4bacfd3f1360b4330d7a666f72db5  .github/pull_request_template.md
@@ -142,7 +142,7 @@ b3665ead3181c6617fb86481539f3bcfc5d7620844488957daddfb9fbf507512  hosts/common/i
 0fdb861a7059aa56d0b98f20628febfc02d30afb37eac8611336d855d1c2b471  hosts/common/nam_block.cpp
 ec50b88a46252eee828e50e27d8dde8352541c676f8262198b3d44f38619fa99  hosts/common/nam_block.hpp
 a02486cb10744347717cd51882c7ad6959139443c276532ffc69b454d949d5d6  hosts/common/tuner_frames.hpp
-844fe4841436643bc64a5bd8ea0c32602462373131e20958f298dddd9d6bde5d  hosts/jack/jack_session.hpp
+bfd7189893f32863cfdcdae2ca0a44638fb0893b7211aa6f400644f0336e5f40  hosts/jack/jack_session.hpp
 5e7a0b80191f723a291f606679b1090cec967b440307612b118bb30df9835161  hosts/jack/latency_probe.cpp
 1c73eee2e1d79ddee733b261b5c59aaa56f234b628878ae3367b42588d74ab57  hosts/jack/nam_amp.hpp
 201838fcc1617c627035b2f3d0f50e95fcc9dcce7836fa2bf98b167c68c27a0f  hosts/jack/rig_engine.hpp
