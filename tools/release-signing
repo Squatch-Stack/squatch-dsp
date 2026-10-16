@@ -137,6 +137,8 @@ def pkg(a):
          "--install-location", a.install_location, unsigned])
     run(["productsign", "--timestamp", "--keychain", KEYCHAIN, "--sign", identity("Installer"), unsigned, a.out])
     run(["pkgutil", "--check-signature", a.out])
+    # The unsigned intermediate sits beside the output, so it would ship with the release (v0.2.1 did): remove it.
+    unsigned.unlink(missing_ok=True)
     return 0
 
 

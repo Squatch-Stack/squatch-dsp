@@ -5,6 +5,7 @@ same tree with one planted problem fails. Run: tools/test-release-scan"""
 import importlib.machinery
 import importlib.util
 import io
+import os
 import sys
 import tempfile
 import unittest
@@ -53,6 +54,11 @@ class Scan(unittest.TestCase):
         found = hits({"plugins.zip": buf.getvalue()})
         self.assertTrue(found and "plugins.zip!Plugin.clap" in found[0])
 
+    def test_the_old_pedal_label_and_hyphenated_trademark_are_found(self):
+        self.assertTrue(hits({"a.json": '{"label": "' + "TS" + ' Drive"}'}))
+        self.assertTrue(hits({"a.md": "Tube-" + "screamer-style overdrive"}))
+        self.assertEqual(hits({"a.md": "results drive the loop; Trail Drive"}), [])
+
     def test_a_broken_scanner_is_refused(self):
         saved = scan.RULES
         scan.RULES = []
@@ -61,6 +67,58 @@ class Scan(unittest.TestCase):
         finally:
             scan.RULES = saved
         self.assertTrue(scan.self_check())
+
+
+FAKE = "zq" + "fake" + "term" + "xv"
+SCANNER = Path.home() / "bin" / "squatch-privacy"
+
+
+@unittest.skipUnless(SCANNER.is_file(), "the owner's private-term scanner exists only on the owner's machine")
+class OwnerTerms(unittest.TestCase):
+    """The owner's private terms are never in this repo: the scan reuses the scanner outside it. These tests point it at
+    a scratch list holding a made-up term and plant that term everywhere a real one could hide."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        (Path(self.tmp.name) / "terms").write_text(f"name|word|{FAKE}\n")
+        self.old_dir = os.environ.get("SQUATCH_PRIVACY_DIR")
+        os.environ["SQUATCH_PRIVACY_DIR"] = self.tmp.name
+        self.saved = scan.PRIV
+        scan.PRIV = scan.load_privacy()
+
+    def tearDown(self):
+        scan.PRIV = self.saved
+        if self.old_dir is None:
+            os.environ.pop("SQUATCH_PRIVACY_DIR", None)
+        else:
+            os.environ["SQUATCH_PRIVACY_DIR"] = self.old_dir
+        self.tmp.cleanup()
+
+    def test_a_planted_term_is_found_in_text_a_name_a_binary_utf16_and_a_zip(self):
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w") as z:
+            z.writestr("Plugin/info.txt", f"Developer ID: {FAKE}")
+        found = hits({
+            "about.html": f"by {FAKE}",
+            f"{FAKE}.txt": "x",
+            "b.bin": b"\x00\x01 ok " + FAKE.encode() + b" tail \x00",
+            "u.dat": b"\x00\x01" + f"Signed {FAKE} here".encode("utf-16le"),
+            "p.zip": buf.getvalue(),
+        })
+        text = "\n".join(found)
+        for part in ("about.html", "file name", "b.bin", "u.dat", "p.zip!Plugin/info.txt"):
+            self.assertIn(part, text, text)
+        self.assertIn("term #1", text)
+        self.assertNotIn(FAKE, text.replace(f"{FAKE}.txt", ""), "the term was printed")
+
+    def test_a_clean_tree_passes_and_a_missing_term_list_is_refused(self):
+        self.assertEqual(hits({"a.txt": "Squatch Stack"}), [])
+        (Path(self.tmp.name) / "terms").write_text("# nothing\n")
+        with self.assertRaises(Exception):
+            scan.load_privacy()
+
+    def test_without_the_scanner_the_scan_still_runs_and_says_so(self):
+        self.assertIsNone(scan.load_privacy(Path(self.tmp.name) / "no-such-scanner"))
 
 
 if __name__ == "__main__":
