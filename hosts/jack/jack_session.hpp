@@ -51,12 +51,27 @@ inline bool connectPorts(jack_client_t* c, const char* from, const char* to) {
 }
 
 /// Sleep until an absolute CLOCK_MONOTONIC time, then advance it by `periodNs`.
+/// macOS has no clock_nanosleep, so there it sleeps for the time left, read from the same clock.
 inline void sleepUntil(uint64_t& deadlineNs, uint64_t periodNs) {
   deadlineNs += periodNs;
+#if defined(__APPLE__)
+  for (;;) {
+    timespec now;
+    clock_gettime(CLOCK_MONOTONIC, &now);
+    const uint64_t nowNs = static_cast<uint64_t>(now.tv_sec) * 1000000000ull + static_cast<uint64_t>(now.tv_nsec);
+    if (nowNs >= deadlineNs) return;
+    const uint64_t left = deadlineNs - nowNs;
+    timespec t;
+    t.tv_sec = static_cast<time_t>(left / 1000000000ull);
+    t.tv_nsec = static_cast<long>(left % 1000000000ull);
+    if (nanosleep(&t, nullptr) == 0) return;  // interrupted by a signal: go round with the time still left
+  }
+#else
   timespec t;
   t.tv_sec = static_cast<time_t>(deadlineNs / 1000000000ull);
   t.tv_nsec = static_cast<long>(deadlineNs % 1000000000ull);
   clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &t, nullptr);
+#endif
 }
 
 }  // namespace squatch::host
