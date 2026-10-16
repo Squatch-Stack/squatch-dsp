@@ -93,8 +93,9 @@ The hosts are at the top of squatch-dsp:
 
 | Path (from the repo root) | What |
 |---|---|
-| `hosts/common/` | host layer any front end can reuse: `display.hpp` (note name, steady and fast cents against a run-time A4); `latest.hpp` forwards to the core's lock-free handoff, `include/squatch/dsp/latest.hpp` |
-| `hosts/jack/` | `squatch-tuner-live`, the tuner behind a JACK input, and `squatch-tone`, an exact test tone |
+| `hosts/common/` | host layer any front end can reuse: `display.hpp` (note name, steady and fast cents against a run-time A4); `latest.hpp` forwards to the core's lock-free handoff, `include/squatch/dsp/latest.hpp`; `tuner_host.hpp` and `tuner_publisher.hpp` (the live tuner's real-time step and JSON line, shared by the JACK and CoreAudio hosts); `tone_gen.hpp` (the exact sine) |
+| `hosts/jack/` | `squatch-tuner-live`, the tuner behind a JACK input (Linux, the Pi), and `squatch-tone`, an exact test tone |
+| `hosts/coreaudio/` | the same two programs for macOS, on CoreAudio directly: no JACK, only system frameworks |
 | `hosts/web/` | `serve.py` (standard-library bridge: page + Server-Sent Events) and the strobe page |
 | `hosts/wasm/` | the browser demo: the core as WebAssembly in an AudioWorklet, the same page with its own input bar, and its tests (`make wasm-test`) |
 | `hosts/tests/` | the host layer's tests (ThreadSanitizer) |
@@ -110,7 +111,8 @@ make results   # every number in RESULTS.md; needs the Guitar-TECHS DI files (se
 make lint      # lizard: CCN <= 10, <= 60 lines, <= 5 parameters per function
 ```
 
-The hosts build from the repo root: `make live` (JACK), and `make test` runs the host tests.
+The hosts build from the repo root: `make live` (CoreAudio on macOS, JACK elsewhere), and `make test` runs the host tests,
+including the CoreAudio host's audio path against a test tone, with no audio device.
 
 There are no dependencies to fetch: a C++17 compiler is enough. The bench uses only the
 standard library.
@@ -133,6 +135,29 @@ make live                                             # needs libjack-jackd2-dev
 python3 hosts/web/serve.py -- build/squatch-tuner-live --input 1
 build/squatch-tone 110                                # an exact test tone on playback_1
 ```
+
+## Live on a Mac
+
+On macOS `make live` builds the same two programs on CoreAudio. They link system frameworks only
+(`otool -L` shows `/System` and `/usr/lib`), so nothing needs installing, and the options and the JSON
+lines are the JACK host's.
+
+```sh
+make live
+build/squatch-tuner-live --list-devices               # every device: channels, rate, which are the defaults
+build/squatch-tuner-live                              # the default input device, channel 1
+build/squatch-tuner-live --device umc --input 2       # a device by (part of) its name, channel 2
+build/squatch-tone 110 --device umc --port 1          # an exact tone on that device's output 1
+python3 hosts/web/serve.py -- build/squatch-tuner-live
+```
+
+- The first run asks, once, whether your terminal may use the microphone. If that was refused the input is
+  digital silence, and the tuner says so on stderr after two seconds.
+- It uses a device as it is: it never changes the Mac's default devices, a buffer size or a sample rate.
+  `--out thru` needs one device with both inputs and outputs (an interface); a Mac's microphone and its
+  speakers are two devices.
+- `capMs` and `tin` come from the device's reported latency, not a loopback measurement.
+- `make live LIVE_BACKEND=jack` builds the JACK version on a Mac that has JACK.
 
 - The number and needle show `steadyHz`; the strobe drifts at the fast reading. Rows are
   partials 1, 2 and 4, so a fine error shows first on the bottom row.

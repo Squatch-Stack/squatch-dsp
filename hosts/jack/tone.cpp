@@ -13,24 +13,23 @@
 
 #include <algorithm>
 #include <chrono>
-#include <cmath>
 #include <cstdlib>
 #include <string_view>
 #include <thread>
 
+#include "../common/tone_gen.hpp"
 #include "jack_session.hpp"
 
 namespace {
 
 using squatch::host::nowNs;
 using squatch::host::running;
+using squatch::host::ToneGen;
 
 struct Tone {
   jack_client_t* client = nullptr;
   jack_port_t* out = nullptr;
-  double phase = 0.0, step = 0.0;     // turns, turns per sample
-  float amp = 0.1f, gain = 0.0f, fadeStep = 0.0f;
-  std::atomic<float> target{0.0f};    // 0 until connected, so the start time is the real one
+  ToneGen gen;
   std::atomic<jack_nframes_t> firstFrame{0};
   std::atomic<bool> started{false};
 };
@@ -40,17 +39,12 @@ Tone gTone;
 int process(jack_nframes_t n, void* arg) {
   Tone& t = *static_cast<Tone*>(arg);
   auto* o = static_cast<float*>(jack_port_get_buffer(t.out, n));
-  const float target = t.target.load(std::memory_order_relaxed);
+  const float target = t.gen.target.load(std::memory_order_relaxed);
   if (target > 0.0f && !t.started.load(std::memory_order_relaxed)) {
     t.firstFrame.store(jack_last_frame_time(t.client), std::memory_order_relaxed);
     t.started.store(true, std::memory_order_release);
   }
-  for (jack_nframes_t i = 0; i < n; ++i) {
-    t.gain = t.gain < target ? std::min(t.gain + t.fadeStep, target) : std::max(t.gain - t.fadeStep, target);
-    o[i] = t.amp * t.gain * static_cast<float>(std::sin(6.283185307179586 * t.phase));
-    t.phase += t.step;
-    t.phase -= std::floor(t.phase);
-  }
+  t.gen.fill(o, n);
   return 0;
 }
 
@@ -82,14 +76,14 @@ void reportStart(const Tone& t) {
   const double ageUs = static_cast<double>(jack_get_time() - jack_frames_to_time(t.client, t.firstFrame.load()));
   const double outMs = 1000.0 * r.max / rate;
   const double startMs = static_cast<double>(nowNs(CLOCK_REALTIME)) / 1e6 - ageUs / 1e3 + outMs;
-  std::printf("{\"toneStart\":%.1f,\"playMs\":%.2f,\"hz\":%.6f}\n", startMs, outMs, t.step * rate);
+  std::printf("{\"toneStart\":%.1f,\"playMs\":%.2f,\"hz\":%.6f}\n", startMs, outMs, t.gen.step * rate);
   std::fflush(stdout);
 }
 
 void playUntilStopped(Tone& t, double seconds) {
   const uint64_t end = seconds > 0.0 ? nowNs() + static_cast<uint64_t>(seconds * 1e9) : UINT64_MAX;
   while (running().load() && nowNs() < end) std::this_thread::sleep_for(std::chrono::milliseconds(20));
-  t.target.store(0.0f);  // fade out, then close
+  t.gen.target.store(0.0f);  // fade out, then close
   std::this_thread::sleep_for(std::chrono::milliseconds(40));
 }
 
@@ -104,14 +98,12 @@ int main(int argc, char** argv) {
   Tone& t = gTone;
   if (!(t.client = squatch::host::openClient("squatch-tone"))) return 2;
   const double rate = jack_get_sample_rate(t.client);
-  t.step = a.hz / rate;
-  t.amp = static_cast<float>(std::pow(10.0, a.db / 20.0));
-  t.fadeStep = static_cast<float>(1.0 / (0.010 * rate));
+  t.gen.configure(a.hz, a.db, rate);
   t.out = jack_port_register(t.client, "out", JACK_DEFAULT_AUDIO_TYPE, JackPortIsOutput, 0);
   jack_set_process_callback(t.client, process, &t);
   if (!t.out || jack_activate(t.client) != 0) return 2;
   if (!squatch::host::connectPorts(t.client, jack_port_name(t.out), a.port)) return 2;
-  t.target.store(1.0f);
+  t.gen.target.store(1.0f);
   reportStart(t);
   playUntilStopped(t, a.seconds);
   jack_client_close(t.client);
