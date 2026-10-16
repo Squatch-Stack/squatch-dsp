@@ -75,21 +75,41 @@ $(BUILD)/test_queue_threads: tests/test_queue_threads.cpp $(HEADERS) | $(BUILD)
 # there, `make test HOST_SAN=`.
 HOST := -std=c++17 -O3 $(WARN) -Iinclude -Iblocks/tuner/include
 HOST_SAN ?= -fsanitize=thread
-HOST_HEADERS := $(wildcard hosts/common/*.hpp) $(wildcard hosts/jack/*.hpp) $(HEADERS)
+HOST_HEADERS := $(wildcard hosts/common/*.hpp) $(wildcard hosts/jack/*.hpp) $(wildcard hosts/coreaudio/*.hpp) $(HEADERS)
 TUNER_HEADERS := $(wildcard blocks/tuner/include/squatch/tuner/*.hpp)
 
 $(BUILD)/test_hosts: hosts/tests/test_hosts.cpp $(HOST_HEADERS) $(TUNER_HEADERS) | $(BUILD)
 	$(CXX) $(HOST) -O1 -g $(HOST_SAN) -o $@ $< -lpthread
 
-# The live JACK tuner and its test-tone generator. Needs the JACK headers (libjack-jackd2-dev):
-# built on the Pi bench, not part of `all`. hosts/pi/ expects them in build/.
+# The CoreAudio host's audio path, offline (no device, no CoreAudio types: runs anywhere). ASan and UBSan.
+$(BUILD)/test_host_audio: hosts/tests/test_host_audio.cpp $(HOST_HEADERS) $(TUNER_HEADERS) | $(BUILD)
+	$(CXX) $(HOST) -O1 -g -fsanitize=address,undefined -o $@ $< -lpthread
+
+# The live tuner and its test-tone generator. On macOS they use CoreAudio directly (hosts/coreaudio): only
+# system frameworks, nothing to install. Elsewhere they use JACK (hosts/jack; needs libjack-jackd2-dev).
+# `make live LIVE_BACKEND=jack` forces JACK on a Mac that has it. Built on the Pi bench, not part of
+# `all`. hosts/pi/ expects them in build/.
+ifeq ($(shell uname -s),Darwin)
+LIVE_BACKEND ?= coreaudio
+else
+LIVE_BACKEND ?= jack
+endif
+ifeq ($(LIVE_BACKEND),coreaudio)
+LIVE_LIBS := -framework CoreAudio -framework AudioToolbox -framework CoreFoundation -lpthread
+# The tuner reads a microphone: its Info.plist (embedded in the binary) carries the text macOS shows when
+# it asks, so a launch from anywhere but Terminal is asked instead of being killed.
+TUNER_LINK := -Wl,-sectcreate,__TEXT,__info_plist,hosts/coreaudio/Info.plist
+else
+LIVE_LIBS := -ljack -lpthread
+TUNER_LINK :=
+endif
 live: $(BUILD)/squatch-tuner-live $(BUILD)/squatch-tone
 
-$(BUILD)/squatch-tuner-live: hosts/jack/tuner_live.cpp $(HOST_HEADERS) $(TUNER_HEADERS) | $(BUILD)
-	$(CXX) $(HOST) -o $@ $< -ljack -lpthread
+$(BUILD)/squatch-tuner-live: hosts/$(LIVE_BACKEND)/tuner_live.cpp $(HOST_HEADERS) $(TUNER_HEADERS) | $(BUILD)
+	$(CXX) $(HOST) -o $@ $< $(LIVE_LIBS) $(TUNER_LINK)
 
-$(BUILD)/squatch-tone: hosts/jack/tone.cpp $(HOST_HEADERS) | $(BUILD)
-	$(CXX) $(HOST) -o $@ $< -ljack -lpthread
+$(BUILD)/squatch-tone: hosts/$(LIVE_BACKEND)/tone.cpp $(HOST_HEADERS) | $(BUILD)
+	$(CXX) $(HOST) -o $@ $< $(LIVE_LIBS)
 
 # The live rig (gate, tuner, amp, cabinet, EQ, limiter as one JACK client) and the loopback
 # latency probe. JACK headers as for `live`; not part of `all`. The amp stage runs NAM Core,
@@ -193,10 +213,11 @@ $(BUILD)/bench_%: bench/bench_%.cpp $(BUILD)/libsquatch-dsp.a $(HEADERS) | $(BUI
 $(BUILD) $(BUILD)/obj:
 	mkdir -p $@
 
-test: $(BUILD)/tests $(BUILD)/test_queue_threads $(BUILD)/test_hosts $(BUILD)/test_rig $(if $(DAISY),$(BUILD)/test_daisy) $(if $(PROBE),$(BUILD)/test_probe)
+test: $(BUILD)/tests $(BUILD)/test_queue_threads $(BUILD)/test_hosts $(BUILD)/test_host_audio $(BUILD)/test_rig $(if $(DAISY),$(BUILD)/test_daisy) $(if $(PROBE),$(BUILD)/test_probe)
 	./$(BUILD)/tests
 	./$(BUILD)/test_queue_threads
 	./$(BUILD)/test_hosts
+	./$(BUILD)/test_host_audio
 	./$(BUILD)/test_rig
 	$(if $(PROBE),./$(BUILD)/test_probe)
 	$(if $(DAISY),./$(BUILD)/test_daisy)

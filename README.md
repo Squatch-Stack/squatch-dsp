@@ -57,7 +57,7 @@ make lint       # complexity limits (lizard)
 make bench      # writes results/bench-<machine>.md
 make ci         # lint, a standalone compile of each header, the -O3 library, the tests
 make golden     # rewrite tests/golden/*.inc, only after a deliberate change of sound
-make live       # the JACK tuner host (Linux, libjack-jackd2-dev)
+make live       # the live tuner and test tone: CoreAudio on macOS (nothing to install), JACK elsewhere (libjack-jackd2-dev)
 make rig        # the JACK rig and latency probe; NAM_CORE=<NeuralAmpModelerCore checkout> adds the amp
 make wasm       # the tuner's browser demo into build/web-demo (needs Emscripten)
 make wasm-test  # the demo in Node and in headless Chrome, against exact test tones

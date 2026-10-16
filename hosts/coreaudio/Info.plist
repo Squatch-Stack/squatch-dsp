@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleIdentifier</key>
+  <string>cc.squatch.tuner-live</string>
+  <key>CFBundleName</key>
+  <string>squatch-tuner-live</string>
+  <key>CFBundleVersion</key>
+  <string>1</string>
+  <key>NSMicrophoneUsageDescription</key>
+  <string>squatch-tuner-live listens to the audio input you choose to show the pitch of the note you play. Nothing is recorded or sent anywhere.</string>
+</dict>
+</plist>
