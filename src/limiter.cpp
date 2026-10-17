@@ -81,6 +81,7 @@ void Limiter::reset() {
   boxSum_ = static_cast<float>(boxLen_);
   now_ = 0;
   released_ = gain_ = leastGain_ = 1.0f;
+  clampHits_ = 0;
 }
 
 void Limiter::set(ParamId id, float value) {
@@ -103,7 +104,7 @@ void Limiter::sizeWindows(double sampleRate) {
     holdLen_ = boxLen_ = lookahead_;
     return;
   }
-  lookahead_ = static_cast<int>(std::ceil(kLookaheadMs * 1e-3 * sampleRate));
+  lookahead_ = lookaheadSamples_ > 0 ? lookaheadSamples_ : static_cast<int>(std::ceil(kLookaheadMs * 1e-3 * sampleRate));
   latency_ = lookahead_ + kTaps / 2;
   holdLen_ = lookahead_ + 2;
   boxLen_ = lookahead_ + 1;
@@ -122,7 +123,10 @@ void Limiter::tick(const float* x, float* y, int channels) {
   for (int c = 0; c < channels; ++c) {
     const float delayed = delay_[c][delayPos_];
     delay_[c][delayPos_] = clean[c];
-    y[c] = std::fmin(std::fmax(delayed * gain_, -ceiling_), ceiling_) * trim;
+    const float gained = delayed * gain_;
+    const float clamped = std::fmin(std::fmax(gained, -ceiling_), ceiling_);
+    clampHits_ += clamped != gained ? 1u : 0u;
+    y[c] = clamped * trim;
   }
   delayPos_ = delayPos_ + 1 == latency_ ? 0 : delayPos_ + 1;
 }

@@ -1,4 +1,4 @@
-# Written by tools/export-public from the squatch-dsp development tree at 992e274fc05280a85d8cf696cfa5011ecb4be98f.
+# Written by tools/export-public from the squatch-dsp development tree at c59b576c054d986b9b2b07e8aaae78b02c803008 (include/squatch/dsp/blocks/limiter.hpp, src/limiter.cpp, tests/test_limiter.cpp only).
 # Do not edit these files here: change them upstream and export again (see the README).
 b1f7ed26a41e8cc4072e6ff565f628c0ee6445997f78e28eb3e06d67ca7a3bb8  .github/FUNDING.yml
 b2b506c683f241ac98479e8ae7656cc099f4bacfd3f1360b4330d7a666f72db5  .github/pull_request_template.md
@@ -213,7 +213,7 @@ fd373abd997fd71d7b06f5fd68a151ca52a41801ea7b01bcef3d4771b33f3447  include/squatc
 b647af8d11f283bb1e6bb0090eb54fc33999635fcddb3d181a6fe82e3102e5ee  include/squatch/dsp/blocks/eq.hpp
 e5a856f3ff42970b3ea8debbac0b5a60944ef25f7b8d6641979b571ea0e0d46c  include/squatch/dsp/blocks/gate.hpp
 1c929aad06c5b768463fe27d319e818d392d8ee831beb9635c43f8d9ca4de237  include/squatch/dsp/blocks/hall.hpp
-e120a2c2c39f8b35f4cccc711fd75a5ff1d95aa00275c5f4bc47c691a5528539  include/squatch/dsp/blocks/limiter.hpp
+42e4c6861964f01c784b805e188fcb39956e17ee346011e70549d8bc5773caba  include/squatch/dsp/blocks/limiter.hpp
 f9814556d159576085699d3917d7ad77ea11723dfb43190559550884695c6c3d  include/squatch/dsp/blocks/trail_od.hpp
 1081edce7a0db8a6452e8c6c63fd471c11d61a8d3ff6b415d69d1de786d79e34  include/squatch/dsp/blocks/tuner.hpp
 84ce45814d9ca2df2808724f93a49fed9624ce6efc1b41c8ddfbdbe397ab4203  include/squatch/dsp/chain.hpp
@@ -246,7 +246,7 @@ e3336c73a8fe87f24b58f9be7d73543191df6d3cd14812b9b817572f86686300  src/crunch.cpp
 997aaaf93bb621b82e9005b7c03c1ce57a9df3060eed02715839b77a908c0122  src/fft.cpp
 11e857fbc81844913529cb8d1f3e1f5481a8bf11a8b75ab5b7238eaf6e452c39  src/gate.cpp
 154643cc87bd8090b8d391eb4539cdf6ee54fcefd4cbc0572869477924ad799b  src/hall.cpp
-1350647095e2791578faecaff87601fe5c6a472b1dec4fe8f9846350a94d6642  src/limiter.cpp
+854465b8f9f0d63eb4ad942a2f25636d0bb05c6a241a463dff7467ca7694d457  src/limiter.cpp
 c8802a9586ff9270b7508ef3fac119b06940552e374c8e06b7876887e36c8252  src/registry.cpp
 1d2bf18fd5edcaf9ee2bd5af7f4d9b233b95ee641440952509b29cccc11be8f8  src/trail_od.cpp
 02a217793b857ef849191e5382ba4772b21ffbf96303713ce2bc25df4c7f8dab  src/tuner.cpp
@@ -305,7 +305,7 @@ ca83fc10ab45b3a19cbd5a4171d0514ff4ce9083228324edce46d586a4082f6f  tests/test_con
 c8466da66780da5ba501794aed9e96e98e61737e7095860c42189d289e61c88f  tests/test_eq.cpp
 700536b759ef2e8e2424738d3478cfe1935f2d1e88bbb9a8942de47130267126  tests/test_gate.cpp
 496af24030c58f117ab29d4dc3e7d234a38037755b4a2a00908384b536b48708  tests/test_interface.cpp
-59bc1c4dc35840db7f90e65d8ae9086003441046c5fc87607cfaef5e6c2c9f8d  tests/test_limiter.cpp
+6dfe603b586ac8ce733f8b0aaf0849202d809028c9129b3e929d83547da01c78  tests/test_limiter.cpp
 e366c533627cec4fe77ebc1ce1809770afafa75d19274a9ceb17295e6de80fd7  tests/test_parity_cabinet.cpp
 4d1b5515c468c043904a865aac7897fb214e0ab3d238021ddb0d1475524c4618  tests/test_parity_gate.cpp
 6a3a2bf2f5f8db612e6618e3f1554464e6aace0b75766f8e73945927306e19ec  tests/test_parity_hall.cpp
