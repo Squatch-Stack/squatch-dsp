@@ -21,9 +21,10 @@ with a guitar or a microphone.
 | `contracts/` | one control contract per block (`cc.squatch.control/1`): ids, keys, ranges, tapers, meters, identity. `tools/build-contracts` generates the C++ tables (`include/squatch/dsp/contracts/`) and the plugin list from them; see [contracts/README.md](contracts/README.md) |
 | `include/squatch/dsp/blocks/`, `src/` | blocks: `Limiter` (lookahead, true-peak, with drive and output trim), `Gate` (noise gate with PiPedal's controls; ranges settled with the browser rig), `Eq` (RBJ low shelf, peak and high shelf), `Cabinet` (impulse response convolution with no added latency: a direct head and a uniformly partitioned FFT tail, on our own radix-2 `Fft`), `TunerBlock` (the tuner behind the `Block` interface) |
 | `blocks/tuner/` | the Squatch Tuner: header-only core, measurement bench and [results](blocks/tuner/RESULTS.md) |
-| `hosts/` | thin hosts: `clap/` (the desktop plugins: CLAP, and VST3 and AUv2 through clap-wrapper; [hosts/clap/README.md](hosts/clap/README.md)), `jack/` (the live tuner; the live rig, gate to limiter as one client; a loopback latency probe), `web/` (its page and a streaming bridge), `wasm/` (the tuner in the browser), `daisy/` (Daisy Seed3 firmware: passthrough, the gate to limiter chain with cycle counts, a latency probe), `common/`, `tests/` |
+| `hosts/` | thin hosts: `clap/` (the desktop plugins: CLAP, and VST3 and AUv2 through clap-wrapper; [hosts/clap/README.md](hosts/clap/README.md)), `jack/` (the live tuner; the live rig, gate to limiter as one client; a loopback latency probe), `web/` (its page and a streaming bridge), `wasm/` (the tuner in the browser), `daisy/` (Daisy Seed3 firmware: passthrough, the gate to limiter chain with cycle counts, a latency probe, and a Neural Amp Modeler A2-Lite model running in real time on one core; [hosts/daisy/README.md](hosts/daisy/README.md)), `common/`, `tests/` |
 | `tests/` | a small test runner, the real-time watch, double-precision references, golden renders |
 | `bench/`, `results/` | CPU cost per block ([results/bench-mac.md](results/bench-mac.md)) |
+| `docs/benchmarks/` | measured results with their method and how to repeat them: [A2-Lite on a Daisy Seed3](docs/benchmarks/daisy-seed3.md) (46.5% of one Cortex-M7 for the amp, 66.4% for the whole chain) |
 
 ## Rules
 

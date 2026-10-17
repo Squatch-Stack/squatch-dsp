@@ -1,0 +1,130 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: MIT
+"""Look for noise at the audio callback rate in a recording of a Seed3's output (libDaisy #656).
+
+    callback-tone REC.wav --block 32 [--channel 2]
+    callback-tone --selftest
+
+The callback runs rate/block times a second (1500 Hz at block 32, 1000 Hz at 48, 750 Hz at 64).
+For the first five harmonics of that rate the tool prints the level, the noise floor beside it
+and how far the line stands above the floor. Levels are averaged over one-second Hann-windowed
+Goertzel frames, so a line that drifts by a fraction of a hertz (the Seed3 and the recorder run
+on different clocks) is still caught. A line at least 6 dB above its floor is reported as a TONE.
+
+Mains hum shares some of these frequencies (1500 Hz is the 25th harmonic of 60 Hz), so the tool
+marks every harmonic that is also a multiple of 50 or 60 Hz. The discriminating test is two
+recordings at different block sizes: callback noise moves with the block size, hum does not.
+Standard library only (runs on the Pi as it is); --selftest proves it can find a tone.
+"""
+import argparse
+import math
+import random
+import statistics
+import sys
+import wave
+
+FRAME_SECONDS = 1.0
+OFFSETS_HZ = (-45.0, -35.0, -25.0, -15.0, 15.0, 25.0, 35.0, 45.0)
+
+
+def read_wav(path, channel):
+    with wave.open(path, "rb") as w:
+        ch, width, rate, frames = w.getnchannels(), w.getsampwidth(), w.getframerate(), w.getnframes()
+        raw = w.readframes(frames)
+    if not 1 <= channel <= ch:
+        sys.exit(f"callback-tone: {path} has {ch} channels, asked for channel {channel}")
+    scale = float(1 << (8 * width - 1))
+    step = ch * width
+    x = []
+    for i in range((channel - 1) * width, len(raw) - width + 1, step):
+        v = int.from_bytes(raw[i:i + width], "little", signed=width > 1)
+        x.append((v - 128 if width == 1 else v) / scale)
+    return x, rate
+
+
+def goertzel_power(frame, window, rate, hz):
+    coeff = 2.0 * math.cos(2.0 * math.pi * hz / rate)
+    s1 = s2 = 0.0
+    for v, w in zip(frame, window):
+        s0 = v * w + coeff * s1 - s2
+        s2, s1 = s1, s0
+    return s1 * s1 + s2 * s2 - coeff * s1 * s2
+
+
+def framed(x, rate):
+    """One-second frames of x and the Hann window for them."""
+    n = int(rate * FRAME_SECONDS)
+    frames = [x[i:i + n] for i in range(0, len(x) - n + 1, n)]
+    if not frames:
+        sys.exit("callback-tone: the recording is shorter than one second")
+    return frames, [0.5 - 0.5 * math.cos(2.0 * math.pi * i / (n - 1)) for i in range(n)]
+
+
+def level_db(frames, window, rate, hz):
+    """Mean power of a sine at hz over the frames, as dBFS of a full-scale sine."""
+    power = statistics.fmean(goertzel_power(f, window, rate, hz) for f in frames)
+    amp = 2.0 * math.sqrt(max(power, 1e-30)) / sum(window)
+    return 20.0 * math.log10(max(amp, 1e-12))
+
+
+def mains(hz):
+    return [m for m in (50, 60) if abs(hz / m - round(hz / m)) < 1e-9]
+
+
+def analyse(x, rate, block, harmonics=5):
+    base = rate / block
+    frames, window = framed(x, rate)
+    rows = []
+    for k in range(1, harmonics + 1):
+        hz = k * base
+        if hz + max(OFFSETS_HZ) >= rate / 2:
+            break
+        line = level_db(frames, window, rate, hz)
+        floor = statistics.median(level_db(frames, window, rate, hz + d) for d in OFFSETS_HZ)
+        rows.append((hz, line, floor, line - floor, mains(hz)))
+    return rows
+
+
+def report(rows, block):
+    print(f"callback rate at block {block}: {rows[0][0]:.1f} Hz")
+    print("   Hz     line dBFS  floor dBFS  above floor")
+    tones = 0
+    for hz, line, floor, above, hum in rows:
+        tone = above >= 6.0
+        tones += tone
+        note = f"  (also {'/'.join(str(m) for m in hum)} Hz mains)" if hum else ""
+        print(f"{hz:7.1f}  {line:10.1f}  {floor:10.1f}  {above:+8.1f} dB {'TONE' if tone else '    '}{note}")
+    print(f"callback-tone: {tones} of {len(rows)} harmonics stand out")
+    return tones
+
+
+def selftest():
+    rate, block = 48000, 32
+    rng = random.Random(1)
+    x = [1e-4 * rng.uniform(-1, 1) + 3e-4 * math.sin(2 * math.pi * 1500.3 * i / rate) for i in range(8 * rate)]
+    with_tone = analyse(x, rate, block, harmonics=2)
+    without = analyse([1e-4 * rng.uniform(-1, 1) for _ in range(8 * rate)], rate, block, harmonics=2)
+    ok = with_tone[0][3] >= 6.0 and all(r[3] < 6.0 for r in without) and with_tone[0][4] == [50, 60]
+    print(f"callback-tone selftest: {'ok' if ok else 'FAIL'} (tone {with_tone[0][3]:+.1f} dB, "
+          f"no tone {max(r[3] for r in without):+.1f} dB)")
+    return 0 if ok else 1
+
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap.add_argument("wav", nargs="?")
+    ap.add_argument("--block", type=int, default=32)
+    ap.add_argument("--channel", type=int, default=1, help="1-based channel of the recording")
+    ap.add_argument("--selftest", action="store_true")
+    a = ap.parse_args()
+    if a.selftest:
+        return selftest()
+    if not a.wav:
+        ap.error("a WAV file, or --selftest")
+    x, rate = read_wav(a.wav, a.channel)
+    report(analyse(x, rate, a.block), a.block)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

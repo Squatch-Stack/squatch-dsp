@@ -1,0 +1,25 @@
+#!/bin/sh
+# SPDX-License-Identifier: MIT
+# Fetches NeuralAmpModelerCore's example A2 model (MIT, Steven Atkinson) at one pinned commit into build/nam-model/A2.nam,
+# and checks its sha256. It is the input of nam_to_header.py (which made nam/a2lite_weights.hpp from it) and the model
+# tools/nam_bench.py and tools/nam_check.py score the board against. The repository does not carry .nam files.
+#
+#   hosts/daisy/tools/fetch-nam-model
+set -eu
+
+COMMIT=0b3d3c97b0859a3a8c92a8628c4dd89a25eb5842   # sdatkinson/NeuralAmpModelerCore main, 2026-09-18
+SHA256=2d2d744516dc0197737a2c5001010429692d4cb20d72b08264781de626fcf4ca
+URL="https://raw.githubusercontent.com/sdatkinson/NeuralAmpModelerCore/$COMMIT/example_models/A2.nam"
+
+HERE=$(cd "$(dirname "$0")" && pwd)
+DEST="$HERE/../../../build/nam-model"
+mkdir -p "$DEST"
+curl --fail --silent --show-error --location --proto '=https' --tlsv1.2 -o "$DEST/A2.nam.part" "$URL"
+got=$(shasum -a 256 "$DEST/A2.nam.part" | cut -d' ' -f1)
+if [ "$got" != "$SHA256" ]; then
+  rm -f "$DEST/A2.nam.part"
+  echo "fetch-nam-model: sha256 is $got, expected $SHA256" >&2
+  exit 1
+fi
+mv "$DEST/A2.nam.part" "$DEST/A2.nam"
+echo "fetch-nam-model: build/nam-model/A2.nam ($SHA256)"

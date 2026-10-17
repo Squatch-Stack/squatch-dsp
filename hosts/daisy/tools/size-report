@@ -1,0 +1,71 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: MIT
+"""Code and RAM per Seed3 firmware image, as a Markdown table.
+
+    size-report --out SIZES.md build/daisy/bin/seed3-*.elf
+
+Region use comes from the linker's own --print-memory-usage (memory.txt beside each variant's
+objects), so the numbers are the linker script's regions, not a guess from section names. The
+.bin is what dfu-util writes to the H750's 128 KB internal flash. Standard library only.
+"""
+import argparse
+import re
+import sys
+from pathlib import Path
+
+REGIONS = ["FLASH", "DTCMRAM", "SRAM", "RAM_D2", "RAM_D3", "ITCMRAM", "SDRAM", "QSPIFLASH"]
+UNITS = {"B": 1, "KB": 1024, "MB": 1024 * 1024, "GB": 1024 ** 3}
+LINE = re.compile(r"^\s*(\w+):\s+(\d+)\s*(B|KB|MB|GB)\s+(\d+)\s*(B|KB|MB|GB)\s+([\d.]+)%")
+
+
+def regions(memory_txt: Path) -> dict:
+    found = {}
+    for line in memory_txt.read_text().splitlines():
+        m = LINE.match(line)
+        if m:
+            found[m.group(1)] = (int(m.group(2)) * UNITS[m.group(3)], int(m.group(4)) * UNITS[m.group(5)])
+    if "FLASH" not in found:
+        sys.exit(f"size-report: no FLASH line in {memory_txt}: did the link print its memory usage?")
+    return found
+
+
+def cell(used_total) -> str:
+    if not used_total:
+        return "-"
+    used, total = used_total
+    return f"{used:,} ({100.0 * used / total:.1f}%)" if used else "0"
+
+
+def row(elf: Path) -> tuple:
+    variant = elf.stem.removeprefix("seed3-")
+    mem = regions(elf.parent.parent / variant / "memory.txt")
+    binary = elf.with_suffix(".bin")
+    if not binary.exists():
+        sys.exit(f"size-report: {binary} is missing")
+    return elf.stem, binary.stat().st_size, mem
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap.add_argument("--out", type=Path, required=True)
+    ap.add_argument("elfs", nargs="+", type=Path)
+    a = ap.parse_args()
+    rows = [row(e) for e in a.elfs]
+    used = [r for r in REGIONS if any(m.get(r, (0, 0))[0] for _, _, m in rows)]
+    out = ["| image | .bin bytes | " + " | ".join(used) + " |", "|---|---:|" + "---:|" * len(used)]
+    for name, size, mem in rows:
+        out.append(f"| {name} | {size:,} | " + " | ".join(cell(mem.get(r)) for r in used) + " |")
+    totals = {r: next((m[r][1] for _, _, m in rows if r in m), 0) for r in used}
+    out.append("")
+    out.append("Region sizes: " + ", ".join(f"{r} {totals[r] // 1024} KB" for r in used) + ".")
+    text = "\n".join(out) + "\n"
+    a.out.write_text(text)
+    print(text, end="")
+    worst = max(m["FLASH"][0] / m["FLASH"][1] for _, _, m in rows)
+    if worst > 0.9:
+        print(f"size-report: an image uses {100 * worst:.1f}% of FLASH", file=sys.stderr)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

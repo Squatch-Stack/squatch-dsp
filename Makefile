@@ -56,8 +56,8 @@ $(BUILD)/tests: $(TEST_SRC) $(SRC) $(HEADERS) $(wildcard blocks/tuner/include/sq
 	$(CXX) $(SANITIZE) $(TEST_DEFS) -o $@ $(TEST_SRC) $(SRC) $(LOCK_LINK)
 
 # The Seed3 firmware's measurement code and its overdrive block, on this machine, with ASan, UBSan
-# and the allocation watch. The firmware itself is `make -C hosts/daisy` (arm-none-eabi-gcc). The
-# development tree only: the public export has no hosts/daisy, and `make test` skips this then.
+# and the allocation watch. The firmware itself is `make -C hosts/daisy` (arm-none-eabi-gcc;
+# hosts/daisy/README.md). `make test` also runs the Python tools' guard tests there.
 DAISY := $(wildcard hosts/daisy/tests)
 ifneq ($(DAISY),)
 DAISY_TEST_SRC := $(wildcard hosts/daisy/tests/*.cpp) tests/runner.cpp tests/rt_watch.cpp
@@ -221,6 +221,7 @@ test: $(BUILD)/tests $(BUILD)/test_queue_threads $(BUILD)/test_hosts $(BUILD)/te
 	./$(BUILD)/test_rig
 	$(if $(PROBE),./$(BUILD)/test_probe)
 	$(if $(DAISY),./$(BUILD)/test_daisy)
+	$(if $(DAISY),python3 hosts/daisy/tests/test_tools.py)
 	$(MAKE) -C blocks/tuner test CXX=$(CXX)
 
 # The tuner quality suite (blocks/tuner/bench/quality/README.md): every case through the display

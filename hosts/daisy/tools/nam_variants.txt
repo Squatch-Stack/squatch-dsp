@@ -1,0 +1,11 @@
+// Kernel variants for tools/nam_bench.py, one per line:  name: tokens  # why   (add [inexact] when the sum order changes)
+// Tokens are the NAMOPT_ options of nam/a2lite.hpp without the prefix, with an x (xfused = -DNAMOPT_FUSED=1); xdtcm puts the model
+// object in DTCM (seed3-nam/main.cpp); xo2 xo3 xos xfast xlto set compiler flags. 'base' (no tokens) is built in.
+// The earlier sweep's further kernel and compiler variants are in docs/benchmarks/daisy-seed3.md.
+dtcm: xdtcm  # model object in DTCM only
+fused: xfused  # fused 3-output tiles, repacked weights, branch-free activation, residual stored straight into the next ring
+fused+dtcm: xfused xdtcm  # the shipping kernel: fused, state in DTCM
+fused+dtcm+lto: xfused xdtcm xlto  # and -flto
+fused+dtcm+fast: xfused xdtcm xfast  # and -ffast-math [inexact]
+fused+dtcm+o2: xfused xdtcm xo2  # and the image at -O2 instead of -O3 (shows how much the code generation matters)
+fused+dtcm+slideh: xfused xdtcm xslideh  # the shipping kernel: fused, state in DTCM, the head over a sliding window
