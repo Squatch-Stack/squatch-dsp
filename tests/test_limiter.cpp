@@ -3,6 +3,8 @@
 // any signal, at any ceiling, in any block size; neither does the waveform between samples (true
 // peak, measured at 16x with a 96-tap reference interpolator) at 44.1, 48 and 96 kHz; and it
 // matches its double-precision definition.
+#include <cstdint>
+#include <cstring>
 #include <squatch/dsp/blocks/limiter.hpp>
 
 #include "check.hpp"
@@ -23,13 +25,18 @@ static const double* const kGoldenRender = nullptr;
 
 namespace {
 
+#if defined(__clang__) && defined(__aarch64__)
+// Taken from the limiter before the look-ahead option existed (Apple clang, arm64, the Makefile's test flags).
+constexpr std::uint64_t kDefaultTortureHash = 0xcb148b4795168880ull;
+#endif
 constexpr double kRate = 48000.0;
 alignas(64) unsigned char gMem[1 << 16];
 
 struct Rig {
   Limiter lim;
-  explicit Rig(float ceilingDb, float releaseMs = 50.0f, double rate = kRate) {
+  explicit Rig(float ceilingDb, float releaseMs = 50.0f, double rate = kRate, int lookahead = 0) {
     Arena mem(gMem, sizeof gMem);
+    lim.setLookaheadSamples(lookahead);
     lim.set(Limiter::Ceiling, ceilingDb);
     lim.set(Limiter::Release, releaseMs);
     lim.prepare(Setup{rate, 256}, mem);
@@ -227,4 +234,98 @@ TEST(limiterGolden) {
   CHECK(e < 1e-9, "ESR against the double-precision definition %.3g", e);
   std::printf("     limiter ESR vs reference: %.3g\n", e);
   golden::check("limiter", y, kGoldenRender, 1e-5);
+}
+
+namespace {
+
+// FNV-1a over the bit patterns of a rendering.
+std::uint64_t hashBits(const std::vector<float>& y, std::uint64_t h = 1469598103934665603ull) {
+  for (float v : y) {
+    std::uint32_t b;
+    std::memcpy(&b, &v, sizeof b);
+    for (int k = 0; k < 4; ++k) h = (h ^ ((b >> (8 * k)) & 0xffu)) * 1099511628211ull;
+  }
+  return h;
+}
+
+std::uint64_t hashOfTorture(int lookahead, bool set) {
+  const auto signals = torture();
+  std::uint64_t h = 1469598103934665603ull;
+  for (std::size_t k = 0; k < signals.size(); ++k) {
+    Limiter lim;
+    if (set) lim.setLookaheadSamples(lookahead);
+    Arena mem(gMem, sizeof gMem);
+    lim.set(Limiter::Ceiling, -1.0f);
+    lim.set(Limiter::Release, 20.0f + 100.0f * float(k % 3));
+    lim.prepare(Setup{kRate, 256}, mem);
+    std::vector<float> y(signals[k].size());
+    lim.process(signals[k].data(), y.data(), static_cast<int>(y.size()));
+    h = hashBits(y, h);
+  }
+  return h;
+}
+
+}  // namespace
+
+// The default look-ahead (1.5 ms, 72 samples at 48 kHz) stays exactly what it was.
+TEST(limiterDefaultIsBitIdentical) {
+  const std::uint64_t h = hashOfTorture(0, false);
+  CHECK(hashOfTorture(0, true) == h, "setLookaheadSamples(0) is the default");
+  CHECK(hashOfTorture(72, true) == h, "72 samples is exactly the default 1.5 ms at 48 kHz");
+  CHECK(hashOfTorture(71, true) != h, "71 samples really is different (the test can tell)");
+#if defined(__clang__) && defined(__aarch64__)
+  CHECK(h == kDefaultTortureHash, "default rendering hash %016llx, recorded before the option: %016llx",
+        static_cast<unsigned long long>(h), static_cast<unsigned long long>(kDefaultTortureHash));
+#endif
+}
+
+// Short look-ahead (setLookaheadSamples): the latency is n + 16, the ceiling holds at every length, and the price is
+// distortion on hot low notes and more work for the final clamp. The table is printed so a change shows up in the log.
+namespace {
+
+// THD of a steady, hot sine through a limiter at -1 dB: harmonics 2..10 against the fundamental over the last 0.5 s.
+double hotThd(double hz, int lookahead) {
+  Rig hot(-1.0f, 120.0f, kRate, lookahead);
+  const std::vector<float> y = hot.run(sig::sine(hz, 48000, kRate, 2.0));
+  const double f = sig::amplitudeAt(y, hz, kRate, 24000, 48000);
+  double h2 = 0.0;
+  for (int k = 2; k <= 10; ++k) {
+    const double a = sig::amplitudeAt(y, hz * k, kRate, 24000, 48000);
+    h2 += a * a;
+  }
+  return 100.0 * std::sqrt(h2) / f;
+}
+
+}  // namespace
+
+// Short look-ahead (setLookaheadSamples): the latency is n + 16, the ceiling holds at every length, and the price is
+// distortion on hot low notes and more work for the final clamp. The table is printed so a change shows up in the log.
+TEST(limiterShortLookahead) {
+  std::printf("     lookahead latency  THD@82Hz THD@110Hz THD@440Hz (+7 dB over)  clampHits(torture)  worst true peak vs ceiling\n");
+  for (int n : {0, 32, 16}) {
+    const int expectLookahead = n == 0 ? 72 : n;
+    {
+      Rig r(-1.0f, 120.0f, kRate, n);
+      CHECK(r.lim.latency() == expectLookahead + 16, "lookahead %d: latency %d", n, r.lim.latency());
+    }
+    const double t82 = hotThd(82.41, n), t110 = hotThd(110.0, n), t440 = hotThd(440.0, n);
+    // The ceiling, on everything that breaks a limiter, and how often the clamp had to step in.
+    const double ceiling = dbToGain(-1.0f);
+    std::uint64_t hits = 0;
+    const auto signals = torture();
+    for (std::size_t k = 0; k < signals.size(); ++k) {
+      Rig r(-1.0f, 20.0f + 100.0f * float(k % 3), kRate, n);
+      CHECK(sig::peak(r.run(signals[k], static_cast<std::uint32_t>(k + 1))) <= ceiling, "lookahead %d signal %zu: sample peak over the ceiling", n, k);
+      hits += r.lim.clampHits();
+    }
+    double worst = -100.0;
+    const auto inter = interSampleSet(kRate, 12000);
+    for (const auto& x : inter) {
+      Rig r(-1.0f, 50.0f, kRate, n);
+      worst = std::max(worst, sig::db(ref::truePeak(r.run(x))) + 1.0);
+    }
+    std::printf("     %9d %7d  %7.3f%% %8.3f%% %8.3f%% %22llu  %+.4f dB\n", expectLookahead, expectLookahead + 16, t82, t110, t440,
+                static_cast<unsigned long long>(hits), worst);
+    CHECK(worst <= 0.0, "lookahead %d: a true peak %+.4f dB over the ceiling", n, worst);
+  }
 }

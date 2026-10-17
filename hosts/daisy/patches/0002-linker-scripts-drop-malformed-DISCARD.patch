@@ -1,0 +1,55 @@
+libDaisy PR #715 (fixes #714), head f0e27d610caf16a0858b3e9459c7e644e0ae33e4, CHANGELOG hunk dropped.
+A malformed DISCARD block named libc.a/libm.a/libgcc.a, which loads full newlib into CMake links.
+The Make link is byte-identical with or without it (the PR's own check); carried for CMake.
+
+diff --git a/core/STM32H750IB_flash.lds b/core/STM32H750IB_flash.lds
+index 6d8e6a439..7ac8227f5 100644
+--- a/core/STM32H750IB_flash.lds
++++ b/core/STM32H750IB_flash.lds
+@@ -257,12 +257,5 @@ SECTIONS
+ 		PROVIDE(__reserved_for_stack_end__ = .);
+ 	} > SRAM
+ 
+-    DISCARD :
+-    {
+-        libc.a ( * )
+-        libm.a ( * )
+-        libgcc.a ( * )
+-    }
+-
+ }
+ 
+diff --git a/core/STM32H750IB_qspi.lds b/core/STM32H750IB_qspi.lds
+index 8e3eb1311..9d0229541 100644
+--- a/core/STM32H750IB_qspi.lds
++++ b/core/STM32H750IB_qspi.lds
+@@ -260,11 +260,4 @@ SECTIONS
+ 		PROVIDE(__reserved_for_stack_end__ = .);
+ 	} > DTCMRAM
+ 
+-    DISCARD :
+-    {
+-        libc.a ( * )
+-        libm.a ( * )
+-        libgcc.a ( * )
+-    }
+-
+ }
+\ No newline at end of file
+diff --git a/core/STM32H750IB_sram.lds b/core/STM32H750IB_sram.lds
+index d080f30e9..133ead951 100644
+--- a/core/STM32H750IB_sram.lds
++++ b/core/STM32H750IB_sram.lds
+@@ -258,11 +258,4 @@ SECTIONS
+ 		PROVIDE(__reserved_for_stack_end__ = .);
+ 	} > DTCMRAM
+ 
+-    DISCARD :
+-    {
+-        libc.a ( * )
+-        libm.a ( * )
+-        libgcc.a ( * )
+-    }
+-
+ }
+\ No newline at end of file

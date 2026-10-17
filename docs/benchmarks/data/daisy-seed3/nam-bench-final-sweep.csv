@@ -1,0 +1,5 @@
+variant,options,why,status,cycles_mean,cycles_min,cycles_max,pct_budget,esr_db,exact_vs_base,flash_bytes,ram_bytes,dtcm_bytes,stack_used,stack_region,flash_secs,note
+base,(none),"first float32 kernel, rings and state in AXI SRAM, weights in flash",ok,329950,325200,337014,103.1,-123.9,4800/4800,84740,158628,0,1536,131072,22.6,"board vs Mac same options 234/4800, vs Mac baseline 234/4800"
+fused+dtcm,xfused xdtcm,"the shipping kernel: fused, state in DTCM",ok,154393,152618,159980,48.2,-123.9,4800/4800,90800,166544,124564,1912,6508,23.3,"board vs Mac same options 234/4800, vs Mac baseline 234/4800"
+fused+dtcm+slideh,xfused xdtcm xslideh,"the shipping kernel: fused, state in DTCM, the head over a sliding window",ok,148656,146336,154790,46.5,-123.9,4800/4800,92240,166544,124564,1912,6508,23.6,"board vs Mac same options 234/4800, vs Mac baseline 234/4800"
+break,xbreak,NEGATIVE CONTROL: one weight x1.01; the gate must reject it,REJECTED,329944,325125,336707,103.1,-40.0,0/4800,84780,158628,0,1536,131072,22.5,"board vs Mac same options 242/4800, vs Mac baseline 0/4800 ESR -40.0 dB is worse than -100 dB"

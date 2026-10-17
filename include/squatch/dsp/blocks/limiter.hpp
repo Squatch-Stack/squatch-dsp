@@ -58,6 +58,14 @@ class Limiter final : public Block, public contracts::LimiterContract {
   static constexpr float kBrowserLookaheadMs = 2.0f;  // the browser kernel's window, used by the test-only mode
 
   Limiter();
+  /// Look-ahead in samples instead of the default kLookaheadMs (1.5 ms: 72 samples at 48 kHz); 0 is the default.
+  /// Call before prepare(). The latency becomes n + kTaps / 2 samples (n = 16: 32 samples = 0.67 ms at 48 kHz).
+  /// What a short window costs: the gain reaches its target over n + 1 samples instead of 73, so a hot signal
+  /// is shaped by a steeper gain edge (more distortion, see tests/test_limiter.cpp); the ceiling still holds, because
+  /// the hard clamp is the last stage: clampHits() counts the samples where the gain stage alone was not enough.
+  void setLookaheadSamples(int n) { lookaheadSamples_ = n > 0 ? n : 0; }
+  /// Samples the final clamp had to cut since reset(): 0 means the gain stage held the ceiling by itself.
+  std::uint32_t clampHits() const { return clampHits_; }
   /// Test only (see above): the browser's sample-peak detector and 2 ms window. Takes effect at prepare().
   void useSamplePeakForTest(bool on) { samplePeak_ = on; }
   void prepare(const Setup& s, Arena& mem) override;
@@ -111,6 +119,8 @@ class Limiter final : public Block, public contracts::LimiterContract {
   float leastGain_ = 1.0f;  // over the last process(), for the meter
   bool ready_ = false;
   bool samplePeak_ = false;  // test only: the browser's detector
+  int lookaheadSamples_ = 0;  // 0: kLookaheadMs
+  std::uint32_t clampHits_ = 0;
 };
 
 }  // namespace squatch::dsp

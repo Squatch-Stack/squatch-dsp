@@ -1,0 +1,83 @@
+#!/bin/sh
+# SPDX-License-Identifier: MIT
+# Fetches libDaisy at one pinned commit, with the submodules the Make build needs at the commits
+# that commit records, and applies our patches. Run once, by hand, before `make`; the build itself
+# never downloads anything. The result lives in hosts/daisy/vendor/ (gitignored).
+#
+#   hosts/daisy/fetch-libdaisy            fetch (or re-check) the pin
+#   hosts/daisy/fetch-libdaisy --verify   only check an existing checkout against the pin
+#
+# To move the pin: change LIBDAISY_COMMIT and the submodule lines below together, rerun, rebuild,
+# and redo the on-board checks in README.md.
+set -eu
+
+HERE=$(cd "$(dirname "$0")" && pwd)
+DEST="$HERE/vendor/libDaisy"
+URL=https://github.com/daisyaudio/libDaisy.git
+# daisyaudio/libDaisy master at the Seed3 DevKits merge (#717), 2026-09-24. No tagged release
+# has Seed3 support yet (the last tag, v8.1.0, predates it).
+LIBDAISY_COMMIT=facb66c76b5482918741695f4268b0185e474644
+
+# path commit: what LIBDAISY_COMMIT records for each submodule the Make build compiles against.
+# Not fetched: Drivers/CMSIS-DSP (nothing here links it; see libDaisy #547 before adding it) and
+# tests/googletest.
+SUBMODULES="Drivers/CMSIS_5 2b7495b8535bdcb306dac29b9ded4cfb679d7e5c
+Drivers/CMSIS-Device/ST/STM32H7xx 6dac8c24d7b38ab20806d27dd7d8285a6433b8f7
+Drivers/STM32H7xx_HAL_Driver 404a70d4c19c124636c78801ff7c0dbc87bc4256
+Middlewares/ST/STM32_USB_Device_Library 7b5e6886d2f11ad15d2b46364e8a96984358f639"
+
+STAMP="$DEST/.squatch-pin"
+
+die() { echo "fetch-libdaisy: $*" >&2; exit 1; }
+
+# The stamp names the pin and the exact patch files applied; anything else means a stale checkout.
+expected_stamp() {
+  echo "libDaisy $LIBDAISY_COMMIT"
+  echo "$SUBMODULES"
+  for p in "$HERE"/patches/*.patch; do
+    echo "patch $(basename "$p") $(shasum -a 256 "$p" | cut -d' ' -f1)"
+  done
+}
+
+check_commits() {
+  [ "$(git -C "$DEST" rev-parse HEAD)" = "$LIBDAISY_COMMIT" ] || die "libDaisy is not at $LIBDAISY_COMMIT"
+  echo "$SUBMODULES" | while read -r path commit; do
+    recorded=$(git -C "$DEST" ls-tree HEAD "$path" | awk '{print $3}')
+    [ "$recorded" = "$commit" ] || die "$path: libDaisy records $recorded, the pin says $commit"
+    [ "$(git -C "$DEST/$path" rev-parse HEAD)" = "$commit" ] || die "$path is not at $commit"
+  done
+}
+
+verify() {
+  [ -f "$STAMP" ] || die "no checkout at $DEST (run hosts/daisy/fetch-libdaisy)"
+  expected_stamp | cmp -s - "$STAMP" || die "$DEST is from another pin or other patches: delete it and fetch again"
+  check_commits
+  n=0
+  for _ in "$HERE"/patches/*.patch; do n=$((n + 1)); done
+  echo "fetch-libdaisy: vendor/libDaisy matches the pin ($LIBDAISY_COMMIT + $n patches)"
+}
+
+fetch() {
+  rm -rf "$DEST"
+  mkdir -p "$DEST"
+  git -C "$DEST" init -q
+  git -C "$DEST" remote add origin "$URL"
+  git -C "$DEST" fetch -q --depth 1 origin "$LIBDAISY_COMMIT"
+  git -C "$DEST" -c advice.detachedHead=false checkout -q FETCH_HEAD
+  echo "$SUBMODULES" | while read -r path _; do
+    git -C "$DEST" submodule update -q --init --depth 1 -- "$path"
+  done
+  check_commits
+  for p in "$HERE"/patches/*.patch; do
+    git -C "$DEST" apply --check "$p" || die "$(basename "$p") does not apply"
+    git -C "$DEST" apply "$p"
+    echo "applied $(basename "$p")"
+  done
+  expected_stamp > "$STAMP"
+}
+
+case "${1:-}" in
+  --verify) verify ;;
+  "") if [ -f "$STAMP" ] && expected_stamp | cmp -s - "$STAMP"; then verify; else fetch && verify; fi ;;
+  *) die "usage: fetch-libdaisy [--verify]" ;;
+esac

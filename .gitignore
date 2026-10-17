@@ -1,3 +1,5 @@
 .codegraph/
 build/
 .DS_Store
+hosts/daisy/vendor/
+__pycache__/

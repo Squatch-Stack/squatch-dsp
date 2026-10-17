@@ -1,0 +1,21 @@
+libDaisy PR #713 (fixes #712), head 22664711e3a0a77fed9d070e209ccbe39fe534f1, CHANGELOG hunk dropped.
+The CMake build never defined DATA_IN_D2_SRAM, so SystemInit() left the D2 SRAM that holds the
+audio DMA buffers disabled. The Make build (which we use) already defines it; carried so a CMake
+build of this pin is safe too.
+
+diff --git a/Drivers/CMakeLists.txt b/Drivers/CMakeLists.txt
+index 77fd3ce80..a52d4a6cf 100644
+--- a/Drivers/CMakeLists.txt
++++ b/Drivers/CMakeLists.txt
+@@ -12,6 +12,11 @@ target_include_directories(CMSIS_DEVICE_H7 PUBLIC
+ target_sources(CMSIS_DEVICE_H7 PRIVATE
+   ${MODULE_DIR}/sys/system_stm32h7xx.c
+ )
++# Enables the D2 AHB SRAM blocks in SystemInit(). DMA_BUFFER_MEM_SECTION places
++# DMA buffers there (.sram1_bss / RAM_D2), and the blocks are off out of reset.
++target_compile_definitions(CMSIS_DEVICE_H7 PRIVATE
++  DATA_IN_D2_SRAM
++)
+ target_link_libraries(CMSIS_DEVICE_H7 PUBLIC
+   CMSIS_CORE
+   STM32H7XX_HAL_DRIVER

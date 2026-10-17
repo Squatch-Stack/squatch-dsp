@@ -1,0 +1,51 @@
+# SPDX-License-Identifier: MIT
+# The Daisy Seed3 firmware: every image builds with a pinned arm-none-eabi-gcc, fits the 128 KB flash, passes the heap check,
+# and the host-side tests pass. Nothing is flashed: no board is involved.
+name: Daisy
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  firmware:
+    runs-on: ubuntu-24.04
+    env:
+      # Arm GNU Toolchain 15.3.Rel1 (GCC 15.3.1), the compiler the benchmark in docs/benchmarks/daisy-seed3.md was measured with.
+      # The chain image is 98% of the flash, so another compiler may not link. Published by Arm at gitlab.arm.com (its .sha256asc
+      # file carries the same digest); GCC 15.3.1 is dated 2026-06-27.
+      ARM_GCC_VERSION: 15.3.rel1
+      ARM_GCC_SHA256: 563bebb2b97d53382b956d6ee1fe61e2cae26699901417234a37df505ef9b5fa
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: arm-none-eabi-gcc ${{ env.ARM_GCC_VERSION }} (pinned by hash)
+        run: |
+          name="arm-gnu-toolchain-${ARM_GCC_VERSION}-x86_64-arm-none-eabi"
+          curl --fail --silent --show-error --location --proto '=https' --tlsv1.2 -o "$RUNNER_TEMP/gcc.tar.xz" \
+            "https://gitlab.arm.com/api/v4/projects/tooling%2Fgnu-toolchains-for-arm/packages/generic/gnu-toolchain/${ARM_GCC_VERSION}/${name}.tar.xz"
+          echo "${ARM_GCC_SHA256}  $RUNNER_TEMP/gcc.tar.xz" | sha256sum --check --strict
+          tar -xJf "$RUNNER_TEMP/gcc.tar.xz" -C "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/$name/bin" >> "$GITHUB_PATH"
+      - name: Toolchain version
+        run: arm-none-eabi-gcc --version | head -1
+      - name: libDaisy at the pinned commit, with our two patches
+        run: hosts/daisy/fetch-libdaisy
+      - name: Build every image, check sizes and the heap
+        run: make -C hosts/daisy -j4
+      - name: Image sizes
+        run: cat build/daisy/SIZES.md >> "$GITHUB_STEP_SUMMARY"
+      - name: The model weights header regenerates from NAM Core's example model
+        run: |
+          hosts/daisy/tools/fetch-nam-model
+          python3 hosts/daisy/tools/nam_to_header.py build/nam-model/A2.nam | diff - hosts/daisy/nam/a2lite_weights.hpp
+      - name: Host-side tests (ASan + UBSan, allocation watch)
+        run: |
+          sudo sysctl -w vm.mmap_rnd_bits=28
+          make build/test_daisy CXX=clang++
+          ./build/test_daisy
+      - name: Tool guard tests (the accuracy-gate test needs numpy)
+        run: |
+          sudo apt-get install --yes --no-install-recommends python3-numpy
+          python3 hosts/daisy/tests/test_tools.py

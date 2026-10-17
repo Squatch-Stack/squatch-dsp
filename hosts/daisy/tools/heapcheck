@@ -1,0 +1,163 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: MIT
+"""Prove from the linked image that nothing the audio callback can reach allocates, frees, locks
+or does stdio - the board-side half of squatch-dsp's real-time rule.
+
+    heapcheck [--objdump arm-none-eabi-objdump] [--nm arm-none-eabi-nm] IMAGE.elf...
+
+For each image: disassemble it, build the call graph from direct branches (bl, b.w and every
+other branch whose target is another function's start: tail calls), and walk it from the
+firmware's audio callback. Indirect calls (blx/bx through a register) inside squatch code are
+the Block interface's virtual calls, so they are resolved to every function in every squatch
+vtable in the image - a superset of what can really be called. An indirect call anywhere else
+reachable is reported as unresolved, and fails the check.
+
+A symbol is forbidden when it allocates or frees (malloc, free, operator new/delete, sbrk...),
+takes a lock (newlib's retarget locks), or does stdio (printf family, _write). The report lists
+which of them are in the image at all (libDaisy's USB serial pulls some in) and fails if any is
+reachable. Exit 0 all images clean, 1 any finding. Standard library only.
+
+The check itself is tested: `make -C hosts/daisy heapcheck-control` builds an image whose
+callback allocates on purpose, and requires this script to fail it.
+"""
+import argparse
+import re
+import subprocess
+import sys
+from pathlib import Path
+
+ROOT = re.compile(r"_GLOBAL__N_\d+L?8callbackE")  # each firmware's `callback` in an anonymous namespace
+FORBIDDEN_EXACT = {
+    "malloc", "_malloc_r", "calloc", "_calloc_r", "realloc", "_realloc_r", "free", "_free_r",
+    "memalign", "_memalign_r", "sbrk", "_sbrk", "_sbrk_r", "__malloc_lock", "__malloc_unlock",
+    "__cxa_allocate_exception", "__cxa_throw", "abort",
+    "printf", "_printf_r", "vprintf", "sprintf", "snprintf", "vsnprintf", "_vsnprintf_r", "_svfprintf_r",
+    "_vfprintf_r", "_vfiprintf_r", "_svfiprintf_r", "puts", "_puts_r", "fwrite", "_fwrite_r", "_write", "_write_r",
+}
+FORBIDDEN_PREFIX = ("_Znw", "_Zna", "_Zdl", "_Zda", "__retarget_lock_")
+
+FUNC = re.compile(r"^([0-9a-f]+) <([^>]+)>:$")
+BRANCH = re.compile(r"^\s*[0-9a-f]+:\s+(b[a-z.]*|cbn?z)\s+(?:r\d+,\s*)?[0-9a-f]+ <([^>+]+)(\+0x[0-9a-f]+)?>")
+INDIRECT = re.compile(r"^\s*[0-9a-f]+:\s+(blx|bx)\s+(r\d+|ip|r1[0-2])\s*$")
+
+
+def forbidden(sym: str) -> bool:
+    return sym in FORBIDDEN_EXACT or sym.startswith(FORBIDDEN_PREFIX)
+
+
+def call_graph(objdump: str, elf: Path):
+    """{function: set of direct targets}, and the functions holding an indirect call."""
+    text = subprocess.run([objdump, "-d", "--no-show-raw-insn", str(elf)], check=True, capture_output=True,
+                          text=True).stdout
+    edges, indirect, cur = {}, set(), None
+    for line in text.splitlines():
+        m = FUNC.match(line)
+        if m:
+            cur = m.group(2)
+            edges.setdefault(cur, set())
+            continue
+        if cur is None:
+            continue
+        b = BRANCH.match(line)
+        if b and b.group(2) != cur:
+            edges[cur].add(b.group(2))
+        elif INDIRECT.match(line):
+            indirect.add(cur)
+    return edges, indirect
+
+
+def symbols(nm: str, elf: Path):
+    """(functions by address, vtables as (address, size)) from the symbol table."""
+    out = subprocess.run([nm, "-S", "--defined-only", str(elf)], check=True, capture_output=True, text=True).stdout
+    funcs, vtables = {}, []
+    for line in out.splitlines():
+        parts = line.split()
+        if len(parts) != 4:
+            continue
+        addr, size, kind, name = int(parts[0], 16), int(parts[1], 16), parts[2], parts[3]
+        if name.startswith("_ZTV"):  # before the kind test: vtables in flash show as T, like code
+            if name.startswith("_ZTVN7squatch"):
+                vtables.append((addr, size))
+        elif kind in "TtWw":
+            funcs[addr] = name
+    return funcs, vtables
+
+
+def read_words(elf: Path, addr: int, size: int):
+    """Little-endian words at a virtual address, from the ELF32 section headers."""
+    data = elf.read_bytes()
+    shoff = int.from_bytes(data[0x20:0x24], "little")
+    shentsize, shnum = int.from_bytes(data[0x2E:0x30], "little"), int.from_bytes(data[0x30:0x32], "little")
+    for i in range(shnum):
+        h = data[shoff + i * shentsize: shoff + (i + 1) * shentsize]
+        sh_type, sh_addr = int.from_bytes(h[4:8], "little"), int.from_bytes(h[12:16], "little")
+        sh_off, sh_size = int.from_bytes(h[16:20], "little"), int.from_bytes(h[20:24], "little")
+        if sh_type != 8 and sh_addr <= addr and addr + size <= sh_addr + sh_size:  # 8: NOBITS
+            start = sh_off + addr - sh_addr
+            return [int.from_bytes(data[start + k: start + k + 4], "little") for k in range(0, size, 4)]
+    return []
+
+
+def virtual_targets(elf: Path, funcs: dict, vtables: list) -> set:
+    targets = set()
+    for addr, size in vtables:
+        for word in read_words(elf, addr, size):
+            name = funcs.get(word & ~1)
+            if name:
+                targets.add(name)
+    return targets
+
+
+def reach(edges, indirect, roots, virtuals):
+    seen, stack, unresolved = set(), list(roots), set()
+    while stack:
+        f = stack.pop()
+        if f in seen:
+            continue
+        seen.add(f)
+        stack.extend(edges.get(f, ()))
+        if f in indirect:
+            if "squatch" in f or ROOT.search(f):
+                stack.extend(virtuals)
+            else:
+                unresolved.add(f)
+    return seen, unresolved
+
+
+def check(elf: Path, objdump: str, nm: str) -> bool:
+    edges, indirect = call_graph(objdump, elf)
+    funcs, vtables = symbols(nm, elf)
+    roots = [f for f in edges if ROOT.search(f)]
+    if not roots:
+        print(f"heapcheck {elf.name}: FAIL - no audio callback symbol found (saw {len(edges)} functions)")
+        return False
+    virtuals = virtual_targets(elf, funcs, vtables)
+    if vtables and not virtuals:
+        print(f"heapcheck {elf.name}: FAIL - {len(vtables)} squatch vtables but no function read from them")
+        return False
+    seen, unresolved = reach(edges, indirect, roots, virtuals)
+    linked = sorted(f for f in edges if forbidden(f))
+    bad = sorted(f for f in seen if forbidden(f))
+    ok = not bad and not unresolved
+    print(f"heapcheck {elf.name}: {'PASS' if ok else 'FAIL'} - the callback reaches {len(seen)} functions "
+          f"({len(virtuals)} virtual targets from {len(vtables)} squatch vtables); "
+          f"forbidden in the image but unreachable: {len(linked) - len(bad)} ({', '.join(linked[:6])}{'...' if len(linked) > 6 else ''})")
+    for f in bad:
+        print(f"  REACHABLE: {f}")
+    for f in sorted(unresolved):
+        print(f"  UNRESOLVED indirect call in {f}")
+    return ok
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap.add_argument("--objdump", default="arm-none-eabi-objdump")
+    ap.add_argument("--nm", default="arm-none-eabi-nm")
+    ap.add_argument("elfs", nargs="+", type=Path)
+    a = ap.parse_args()
+    results = [check(e, a.objdump, a.nm) for e in a.elfs]
+    return 0 if all(results) else 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())
