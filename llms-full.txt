@@ -324,8 +324,8 @@ Source repositories (links pinned to the commit adapted from):
 | What here | Adapted from |
 |---|---|
 | `include/squatch/dsp/crossfade.hpp`, `src/crossfade.cpp`, the cases in `tests/test_crossfade.cpp` (the correlation is a running estimate here, not the first block's: ours) | [crossfade.h](https://github.com/pedal-science/namchain/blob/e208bb869069b15a7331b452e03b7dc88726ffee/include/namchain/rt/crossfade.h), [crossfade.cpp](https://github.com/pedal-science/namchain/blob/e208bb869069b15a7331b452e03b7dc88726ffee/src/rt/crossfade.cpp), [test_crossfade.cpp](https://github.com/pedal-science/namchain/blob/e208bb869069b15a7331b452e03b7dc88726ffee/tests/test_crossfade.cpp) |
-| `tests/glitch.hpp`, `tests/test_glitch.cpp`; applied in `tests/test_bypass.cpp`, `tests/test_cabinet.cpp`, `tests/test_tuner.cpp` | [glitch.h](https://github.com/pedal-science/namchain/blob/e208bb869069b15a7331b452e03b7dc88726ffee/include/namchain/glitch.h), [glitch.cpp](https://github.com/pedal-science/namchain/blob/e208bb869069b15a7331b452e03b7dc88726ffee/src/glitch/glitch.cpp), [test_glitch.cpp](https://github.com/pedal-science/namchain/blob/e208bb869069b15a7331b452e03b7dc88726ffee/tests/test_glitch.cpp) (the four rules and their defaults; rewritten, not copied) |
-| `include/squatch/dsp/blocks/bypass.hpp` and `src/bypass.cpp` (the warm-up before a fade), the cases in `tests/test_bypass.cpp` | [transitions.md](https://github.com/pedal-science/namchain/blob/e208bb869069b15a7331b452e03b7dc88726ffee/docs/transitions.md), [lookback.h](https://github.com/pedal-science/namchain/blob/e208bb869069b15a7331b452e03b7dc88726ffee/include/namchain/lookback.h), [crossfade.h](https://github.com/pedal-science/namchain/blob/e208bb869069b15a7331b452e03b7dc88726ffee/include/namchain/rt/crossfade.h) (the plan: warm over the lookback, then crossfade; no code copied) |
+| `tests/glitch.hpp`, `tests/test_glitch.cpp`; applied in `tests/test_bypass.cpp`, `tests/test_model_swap.cpp`, `tests/test_cabinet.cpp`, `tests/test_tuner.cpp` | [glitch.h](https://github.com/pedal-science/namchain/blob/e208bb869069b15a7331b452e03b7dc88726ffee/include/namchain/glitch.h), [glitch.cpp](https://github.com/pedal-science/namchain/blob/e208bb869069b15a7331b452e03b7dc88726ffee/src/glitch/glitch.cpp), [test_glitch.cpp](https://github.com/pedal-science/namchain/blob/e208bb869069b15a7331b452e03b7dc88726ffee/tests/test_glitch.cpp) (the four rules and their defaults; rewritten, not copied) |
+| `include/squatch/dsp/blocks/model_swap.hpp`, `src/model_swap.cpp`, `include/squatch/dsp/blocks/bypass.hpp` and `src/bypass.cpp` (the warm-up before a fade), the cases in `tests/test_model_swap.cpp` | [transitions.md](https://github.com/pedal-science/namchain/blob/e208bb869069b15a7331b452e03b7dc88726ffee/docs/transitions.md), [lookback.h](https://github.com/pedal-science/namchain/blob/e208bb869069b15a7331b452e03b7dc88726ffee/include/namchain/lookback.h), [crossfade.h](https://github.com/pedal-science/namchain/blob/e208bb869069b15a7331b452e03b7dc88726ffee/include/namchain/rt/crossfade.h) (the plan: warm over the lookback, then crossfade; no code copied) |
 
 ```text
 MIT License
@@ -2370,7 +2370,7 @@ TSAN := $(CORE) -O1 -g -fsanitize=thread
 HEADERS := $(shell find include -name '*.hpp')
 SRC := $(wildcard src/*.cpp)
 OBJ := $(SRC:src/%.cpp=$(BUILD)/obj/%.o)
-TEST_SRC := $(filter-out tests/test_queue_threads.cpp,$(wildcard tests/*.cpp))
+TEST_SRC := $(filter-out tests/test_queue_threads.cpp tests/test_model_swap_threads.cpp,$(wildcard tests/*.cpp))
 TEST_DEPS := $(wildcard tests/*.hpp) $(wildcard tests/golden/*.inc)
 
 # Locks taken inside process() are counted by an interposing dylib (dyld honours __interpose in
@@ -2384,7 +2384,7 @@ TEST_DEFS := -DSQUATCH_NO_LOCK_COUNT
 BENCH_OUT ?= results/bench-$(shell uname -m).md
 endif
 
-.PHONY: all lib test lint headers bench golden ci live rig wasm wasm-test wasm-shots record-session-test clean FORCE \
+.PHONY: all lib test test-tsan test-tsan-negative lint headers bench golden ci live rig wasm wasm-test wasm-shots record-session-test clean FORCE \
         contracts contracts-check tuner-csv plugins plugins-install plugins-check export-check release-scan-test lv2 lv2-linux
 all: lib $(BUILD)/tests $(BUILD)/bench
 
@@ -2420,6 +2420,34 @@ endif
 # The parameter queue is tested across threads, so it gets ThreadSanitizer instead.
 $(BUILD)/test_queue_threads: tests/test_queue_threads.cpp $(HEADERS) | $(BUILD)
 	$(CXX) $(TSAN) -o $@ $< -lpthread
+
+# ModelSwap's handoff across a control and an audio thread. test-tsan runs the stress under
+# ThreadSanitizer and again under ASan and UBSan. test-tsan-negative rebuilds it three times with
+# one memory ordering of the handoff weakened (SQUATCH_BREAK_HANDOFF=1,2,3) and requires
+# ThreadSanitizer to report a data race each time: a guard only counts if breaking it fails.
+# TSan refuses the Pi 5's 47-bit address space (see HOST_SAN below), so this is a Mac/x86 target.
+SWAP_THREADS := tests/test_model_swap_threads.cpp src/model_swap.cpp src/cabinet.cpp src/crossfade.cpp src/fft.cpp
+
+$(BUILD)/test_swap_tsan: $(SWAP_THREADS) $(HEADERS) tests/signals.hpp | $(BUILD)
+	$(CXX) $(TSAN) -o $@ $(SWAP_THREADS) -lpthread
+
+$(BUILD)/test_swap_asan: $(SWAP_THREADS) $(HEADERS) tests/signals.hpp | $(BUILD)
+	$(CXX) $(SANITIZE) -o $@ $(SWAP_THREADS) -lpthread
+
+$(BUILD)/test_swap_broken%: $(SWAP_THREADS) $(HEADERS) tests/signals.hpp | $(BUILD)
+	$(CXX) $(TSAN) -DSQUATCH_BREAK_HANDOFF=$* -o $@ $(SWAP_THREADS) -lpthread
+
+test-tsan: $(BUILD)/test_swap_tsan $(BUILD)/test_swap_asan test-tsan-negative
+	./$(BUILD)/test_swap_tsan
+	./$(BUILD)/test_swap_asan
+
+test-tsan-negative: $(BUILD)/test_swap_broken1 $(BUILD)/test_swap_broken2 $(BUILD)/test_swap_broken3
+	@for v in 1 2 3; do \
+	  if ./$(BUILD)/test_swap_broken$$v > $(BUILD)/swap_broken$$v.log 2>&1; then \
+	    echo "test-tsan-negative: handoff variant $$v ran clean, so the stress test would not notice it"; exit 1; fi; \
+	  grep -q 'WARNING: ThreadSanitizer: data race' $(BUILD)/swap_broken$$v.log || { echo "variant $$v failed without a race report"; exit 1; }; \
+	  echo "test-tsan-negative: variant $$v caught ($$(grep -c 'WARNING: ThreadSanitizer: data race' $(BUILD)/swap_broken$$v.log) race reports)"; \
+	done
 
 # Hosts (hosts/): not core, so exceptions are allowed, but the same warnings. The host layer's
 # handoff is tested for data races with TSan, which refuses the Pi 5's 47-bit address space:
@@ -3288,6 +3316,7 @@ Directory listing (tracked files):
 - include/squatch/dsp/blocks/gate.hpp
 - include/squatch/dsp/blocks/hall.hpp
 - include/squatch/dsp/blocks/limiter.hpp
+- include/squatch/dsp/blocks/model_swap.hpp
 - include/squatch/dsp/blocks/trail_od.hpp
 - include/squatch/dsp/blocks/tuner.hpp
 - include/squatch/dsp/chain.hpp
@@ -3330,6 +3359,7 @@ Directory listing (tracked files):
 - src/gate.cpp
 - src/hall.cpp
 - src/limiter.cpp
+- src/model_swap.cpp
 - src/registry.cpp
 - src/trail_od.cpp
 - src/tuner.cpp
@@ -3400,6 +3430,8 @@ Directory listing (tracked files):
 - tests/test_glitch.cpp
 - tests/test_interface.cpp
 - tests/test_limiter.cpp
+- tests/test_model_swap.cpp
+- tests/test_model_swap_threads.cpp
 - tests/test_parity_cabinet.cpp
 - tests/test_parity_gate.cpp
 - tests/test_parity_hall.cpp

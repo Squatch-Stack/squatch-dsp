@@ -19,7 +19,7 @@ TSAN := $(CORE) -O1 -g -fsanitize=thread
 HEADERS := $(shell find include -name '*.hpp')
 SRC := $(wildcard src/*.cpp)
 OBJ := $(SRC:src/%.cpp=$(BUILD)/obj/%.o)
-TEST_SRC := $(filter-out tests/test_queue_threads.cpp,$(wildcard tests/*.cpp))
+TEST_SRC := $(filter-out tests/test_queue_threads.cpp tests/test_model_swap_threads.cpp,$(wildcard tests/*.cpp))
 TEST_DEPS := $(wildcard tests/*.hpp) $(wildcard tests/golden/*.inc)
 
 # Locks taken inside process() are counted by an interposing dylib (dyld honours __interpose in
@@ -33,7 +33,7 @@ TEST_DEFS := -DSQUATCH_NO_LOCK_COUNT
 BENCH_OUT ?= results/bench-$(shell uname -m).md
 endif
 
-.PHONY: all lib test lint headers bench golden ci live rig wasm wasm-test wasm-shots record-session-test clean FORCE \
+.PHONY: all lib test test-tsan test-tsan-negative lint headers bench golden ci live rig wasm wasm-test wasm-shots record-session-test clean FORCE \
         contracts contracts-check tuner-csv plugins plugins-install plugins-check export-check release-scan-test lv2 lv2-linux
 all: lib $(BUILD)/tests $(BUILD)/bench
 
@@ -69,6 +69,34 @@ endif
 # The parameter queue is tested across threads, so it gets ThreadSanitizer instead.
 $(BUILD)/test_queue_threads: tests/test_queue_threads.cpp $(HEADERS) | $(BUILD)
 	$(CXX) $(TSAN) -o $@ $< -lpthread
+
+# ModelSwap's handoff across a control and an audio thread. test-tsan runs the stress under
+# ThreadSanitizer and again under ASan and UBSan. test-tsan-negative rebuilds it three times with
+# one memory ordering of the handoff weakened (SQUATCH_BREAK_HANDOFF=1,2,3) and requires
+# ThreadSanitizer to report a data race each time: a guard only counts if breaking it fails.
+# TSan refuses the Pi 5's 47-bit address space (see HOST_SAN below), so this is a Mac/x86 target.
+SWAP_THREADS := tests/test_model_swap_threads.cpp src/model_swap.cpp src/cabinet.cpp src/crossfade.cpp src/fft.cpp
+
+$(BUILD)/test_swap_tsan: $(SWAP_THREADS) $(HEADERS) tests/signals.hpp | $(BUILD)
+	$(CXX) $(TSAN) -o $@ $(SWAP_THREADS) -lpthread
+
+$(BUILD)/test_swap_asan: $(SWAP_THREADS) $(HEADERS) tests/signals.hpp | $(BUILD)
+	$(CXX) $(SANITIZE) -o $@ $(SWAP_THREADS) -lpthread
+
+$(BUILD)/test_swap_broken%: $(SWAP_THREADS) $(HEADERS) tests/signals.hpp | $(BUILD)
+	$(CXX) $(TSAN) -DSQUATCH_BREAK_HANDOFF=$* -o $@ $(SWAP_THREADS) -lpthread
+
+test-tsan: $(BUILD)/test_swap_tsan $(BUILD)/test_swap_asan test-tsan-negative
+	./$(BUILD)/test_swap_tsan
+	./$(BUILD)/test_swap_asan
+
+test-tsan-negative: $(BUILD)/test_swap_broken1 $(BUILD)/test_swap_broken2 $(BUILD)/test_swap_broken3
+	@for v in 1 2 3; do \
+	  if ./$(BUILD)/test_swap_broken$$v > $(BUILD)/swap_broken$$v.log 2>&1; then \
+	    echo "test-tsan-negative: handoff variant $$v ran clean, so the stress test would not notice it"; exit 1; fi; \
+	  grep -q 'WARNING: ThreadSanitizer: data race' $(BUILD)/swap_broken$$v.log || { echo "variant $$v failed without a race report"; exit 1; }; \
+	  echo "test-tsan-negative: variant $$v caught ($$(grep -c 'WARNING: ThreadSanitizer: data race' $(BUILD)/swap_broken$$v.log) race reports)"; \
+	done
 
 # Hosts (hosts/): not core, so exceptions are allowed, but the same warnings. The host layer's
 # handoff is tested for data races with TSan, which refuses the Pi 5's 47-bit address space:
