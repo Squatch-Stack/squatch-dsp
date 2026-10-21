@@ -1,4 +1,4 @@
-# Written by tools/export-public from the squatch-dsp development tree at cb2b62446e34386c281146a1084e23a8c73d9365 (docs/benchmarks, .github/workflows/daisy.yml only).
+# Written by tools/export-public from the squatch-dsp development tree at 6eb0d4afb29d532b1abaa2bb0af31f78e9be1eb1 (docs/benchmarks/daisy-seed3.md, hosts/daisy/README.md, hosts/daisy/THIRD_PARTY.md only).
 # Do not edit these files here: change them upstream and export again (see the README).
 b1f7ed26a41e8cc4072e6ff565f628c0ee6445997f78e28eb3e06d67ca7a3bb8  .github/FUNDING.yml
 b2b506c683f241ac98479e8ae7656cc099f4bacfd3f1360b4330d7a666f72db5  .github/pull_request_template.md
@@ -101,7 +101,7 @@ b258bdaf87263f35c04f30bd5e8516dc3a401768087d57fac181ccd0ba3359db  contracts/limi
 8b14b42b364d7fd838f18ac779f50d35470a36845d7299c65b8e1f28f881ccec  contracts/nam_amp.params.json
 5eae36b14efe0bf52376ce508a08d524676ad7e3f28cfbc9baf7fd4e5ec84b9d  contracts/trail-od.params.json
 a2ace083505225291470df9aa4931a2c63fc10b4d76e1bcc8813ccfd3a807f37  contracts/tuner.params.json
-419c244e1b3b3fc085d452788a9cbdc1a2aa1862046232866df8b000e125781a  docs/benchmarks/daisy-seed3.md
+53f2dcd11793d6254c6adb25558ca9d8f9492203fde6c37badfa31c2d9245483  docs/benchmarks/daisy-seed3.md
 ef3d29474f9ead36cccec921c60b63f61a800865f0f4f5fa32d7eb93aace32f7  docs/benchmarks/data/daisy-seed3/nam-bench-final-sweep.csv
 f5f0bba1f7a869e9d2a30141690d60b628b5d8fbd49ddab247d6dbe877155638  docs/benchmarks/data/daisy-seed3/nam-bench-first-sweep.csv
 ddc7d76c2ddfd6d758f45e3c343409cd3b1cc112dc6c523c469e8d27d48499c9  hosts/clap/CMakeLists.txt
@@ -157,8 +157,8 @@ a02486cb10744347717cd51882c7ad6959139443c276532ffc69b454d949d5d6  hosts/common/t
 8160e00f87175633b1b217db65c4a48f89d7c5badb1bffd7fbfed66b46f6d3f2  hosts/coreaudio/tuner_live.cpp
 1f1b5d2cc9fc6b042afcdd27a0ec6d1a39d52836beb7c17f48b4e20cdd644cfe  hosts/coreaudio/tuner_render.hpp
 4605cbcf4af0cfded7cf1204e3410d5e41a1c4d1888fe378e9b2b0a7813f7708  hosts/daisy/Makefile
-92b37b46ffee4fef49a3ab4417029ff19d1ddc501207ea086285f82baa483b88  hosts/daisy/README.md
-6b5e0c5744af0b724586d093c81360903e375ef3245d4844fd653d06be219c67  hosts/daisy/THIRD_PARTY.md
+1b22bc8bd97b2bd6226f6dc780a44b04a7dd2eb7d122bb62a2aaa693027abdd3  hosts/daisy/README.md
+04290d61f585b74b5883bf4b96be6b19616a0193d81a79aa1b510a19f772d389  hosts/daisy/THIRD_PARTY.md
 6fa3a38c3e32201aaab2506cad83b8df41109bc99630685237c855d258125d64  hosts/daisy/common/bench_blocks.hpp
 48a5e99dcfc345bc462cc282007a21a7029ca5985d17bbdca97f88f950fb27ec  hosts/daisy/common/click_detector.hpp
 381a8da371a9cbd891922f27e2b6b6093460686820499f9d3c26e0913413fd99  hosts/daisy/common/cycle_stats.hpp

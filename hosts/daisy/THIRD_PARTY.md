@@ -1,17 +1,21 @@
 # Third-party notices for hosts/daisy
 
-The firmware in this folder is MIT, like the rest of squatch-dsp. It uses, or was generated from, the work of others. Each
+The firmware in this folder is MIT, like the rest of squatch-dsp. It uses, or was generated from, the work of others.
+Each
 notice below is reproduced as its licence requires.
 
 ## NeuralAmpModelerCore: the model weights (MIT)
 
 `nam/a2lite_weights.hpp` holds the 1,871 weights of the A2-Lite submodel (3 channels, 23 layers) of the example model
 `example_models/A2.nam` in NeuralAmpModelerCore, <https://github.com/sdatkinson/NeuralAmpModelerCore>, commit
-`0b3d3c97b0859a3a8c92a8628c4dd89a25eb5842` (sha256 of the file `2d2d744516dc0197737a2c5001010429692d4cb20d72b08264781de626fcf4ca`).
-`tools/fetch-nam-model` downloads that exact file and `tools/nam_to_header.py` regenerates the header from it. The network
-layout in `nam/a2lite.hpp` follows NAM Core's A2 WaveNet; the code is our own. Nothing trained on any other capture is here.
+`0b3d3c97b0859a3a8c92a8628c4dd89a25eb5842` (sha256 of the file
+`2d2d744516dc0197737a2c5001010429692d4cb20d72b08264781de626fcf4ca`).
+`tools/fetch-nam-model` downloads that exact file and `tools/nam_to_header.py` regenerates the header from it. The
+network
+layout in `nam/a2lite.hpp` follows NAM Core's A2 WaveNet; the code is our own. Nothing trained on any other capture is
+here.
 
-```
+```text
 MIT License
 
 Copyright (c) 2023 Steven Atkinson
@@ -37,12 +41,15 @@ SOFTWARE.
 
 ## libDaisy (MIT), fetched, not copied
 
-The firmware links Electrosmith's libDaisy, <https://github.com/electro-smith/libDaisy>. It is not vendored: `fetch-libdaisy`
-clones commit `facb66c76b5482918741695f4268b0185e474644` (master at the Seed3 DevKits merge, 2026-09-24; no tagged release has
-Seed3 support) and its four submodules at the commits that commit records, into `vendor/` (gitignored), and refuses to build
+The firmware links Electrosmith's libDaisy, <https://github.com/electro-smith/libDaisy>. It is not vendored:
+`fetch-libdaisy`
+clones commit `facb66c76b5482918741695f4268b0185e474644` (master at the Seed3 DevKits merge, 2026-09-24; no tagged
+release has
+Seed3 support) and its four submodules at the commits that commit records, into `vendor/` (gitignored), and refuses to
+build
 if anything differs. The libDaisy licence travels with the checkout (`vendor/libDaisy/LICENSE`); its notice is:
 
-```
+```text
 The MIT License (MIT)
 
 Copyright (c) 2019 Electrosmith
@@ -67,12 +74,14 @@ SOFTWARE.
 ```
 
 libDaisy's own submodules (ARM CMSIS, STMicroelectronics' CMSIS device files, HAL driver and USB device library) carry
-their own licences inside the fetched checkout; none of their files is copied into this repository. A firmware binary you
+their own licences inside the fetched checkout; none of their files is copied into this repository. A firmware binary
+you
 build contains parts of them, so keep those licence files with any binary you distribute.
 
 ### Our two patches to libDaisy, and why each exists
 
-Both are applied by `fetch-libdaisy` from `patches/`, and both come from upstream pull requests (kept here because libDaisy
+Both are applied by `fetch-libdaisy` from `patches/`, and both come from upstream pull requests (kept here because
+libDaisy
 has not released a version with them). Neither changes the Make build this folder uses; they matter to anyone who builds
 libDaisy with CMake.
 
@@ -83,8 +92,10 @@ libDaisy with CMake.
 
 ## Faust libraries: the generated drive (`faust/drive_faust.hpp`)
 
-`faust/drive_faust.hpp` is the C++ output of the Faust compiler 2.85.9 for an overdrive model that is our own work, adapted by
-`faust/generate`. The licence lines of the Faust libraries it was compiled from were read in that release's `share/faust`
+`faust/drive_faust.hpp` is the C++ output of the Faust compiler 2.85.9 for an overdrive model that is our own work,
+adapted by
+`faust/generate`. The licence lines of the Faust libraries it was compiled from were read in that release's
+`share/faust`
 on 2026-10-17:
 
 | library and functions used | licence line in the file | effect on this header |
@@ -93,10 +104,11 @@ on 2026-10-17:
 | `signals.lib`, "jos section": `smooth` (`smoo`) | "Copyright (C) 2003-2017 by Julius O. Smith III ... released under the (MIT-style) STK-4.3 license" | same |
 | `maths.lib` (`tanh`, `PI`), `platform.lib` (`SR`), `signals.lib` GRAME section | "Copyright (C) 2003-2016 / 2020 GRAME", "GNU Lesser General Public License ... EXCEPTION TO THE LGPL LICENSE" | the exception lets you "freely choose the license for the resulting compiled code ... no obligation to be LGPL or GPL", so MIT is allowed |
 
-The Faust compiler itself (LGPL 2.1 or later) is not part of this repository, and no Faust architecture file is included: the
+The Faust compiler itself (LGPL 2.1 or later) is not part of this repository, and no Faust architecture file is
+included: the
 header is the bare generated class, with the Faust UI and metadata members removed.
 
-```
+```text
 STK 4.3 licence (Julius O. Smith III), as printed at the end of Faust's filters.lib:
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of
