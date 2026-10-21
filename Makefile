@@ -204,6 +204,12 @@ $(BUILD)/test_probe: hosts/tests/test_probe.cpp src/tuner.cpp $(PROBE_HEADERS) $
 $(BUILD)/test_rig: hosts/tests/test_rig.cpp hosts/common/ir_file.hpp hosts/jack/rig_options.hpp hosts/jack/rig_stages.hpp | $(BUILD)
 	$(CXX) $(HOST) -O1 -g -fsanitize=address,undefined -fno-sanitize-recover=all -o $@ $<
 
+# CabSwap (hosts/common/cab_swap.hpp) keeps its own copy of the impulse response it is given: the test frees
+# the caller's buffer first, so ASan flags a read of it. Exceptions on (a host), the library sources built in.
+$(BUILD)/test_cab_swap_owns_taps: hosts/tests/test_cab_swap_owns_taps.cpp hosts/common/cab_swap.hpp $(HEADERS) $(SRC) tests/runner.cpp | $(BUILD)
+	$(CXX) $(HOST) -O1 -g -fno-omit-frame-pointer -fsanitize=address,undefined -fno-sanitize-recover=all -Wno-unused-parameter \
+	  -o $@ hosts/tests/test_cab_swap_owns_taps.cpp tests/runner.cpp $(SRC)
+
 # The browser demo (hosts/wasm): the tuner as WebAssembly in an AudioWorklet, a static folder
 # for any HTTPS host. Needs Emscripten on PATH (source <emsdk>/emsdk_env.sh); not part of `all`.
 # wasm-test scores the module in Node, then the page in headless Chrome against test tones.
@@ -244,12 +250,13 @@ $(BUILD)/bench_%: bench/bench_%.cpp $(BUILD)/libsquatch-dsp.a $(HEADERS) | $(BUI
 $(BUILD) $(BUILD)/obj:
 	mkdir -p $@
 
-test: $(BUILD)/tests $(BUILD)/test_queue_threads $(BUILD)/test_hosts $(BUILD)/test_host_audio $(BUILD)/test_rig $(if $(DAISY),$(BUILD)/test_daisy) $(if $(PROBE),$(BUILD)/test_probe)
+test: $(BUILD)/tests $(BUILD)/test_queue_threads $(BUILD)/test_hosts $(BUILD)/test_host_audio $(BUILD)/test_rig $(BUILD)/test_cab_swap_owns_taps $(if $(DAISY),$(BUILD)/test_daisy) $(if $(PROBE),$(BUILD)/test_probe)
 	./$(BUILD)/tests
 	./$(BUILD)/test_queue_threads
 	./$(BUILD)/test_hosts
 	./$(BUILD)/test_host_audio
 	./$(BUILD)/test_rig
+	./$(BUILD)/test_cab_swap_owns_taps
 	$(if $(PROBE),./$(BUILD)/test_probe)
 	$(if $(DAISY),./$(BUILD)/test_daisy)
 	$(if $(DAISY),python3 hosts/daisy/tests/test_tools.py)

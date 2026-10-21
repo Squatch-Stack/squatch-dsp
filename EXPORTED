@@ -1,4 +1,4 @@
-# Written by tools/export-public from the squatch-dsp development tree at 37a3f875f2675f33093dcfd7ae0a9732a2033d23 (Makefile, THIRD_PARTY_NOTICES.md, bench/bench.cpp, bench/protocol.hpp, results/bench-long-mac.md, results/bench-long-r1-pi5.md, results/bench-long-r1-x86.md, results/bench-long-r2-pi5.md, results/bench-long-r2-x86.md, results/bench-long-r3-pi5.md, results/bench-long-r3-x86.md, results/bench-mac.md, tests/test_bench_protocol.cpp only).
+# Written by tools/export-public from the squatch-dsp development tree at f4e7834021292aae47d0032f4b3b0689e099d9c9 (hosts/common/cab_swap.hpp, hosts/tests/test_cab_swap_owns_taps.cpp, Makefile, THIRD_PARTY_NOTICES.md only).
 # Do not edit these files here: change them upstream and export again (see the README).
 b1f7ed26a41e8cc4072e6ff565f628c0ee6445997f78e28eb3e06d67ca7a3bb8  .github/FUNDING.yml
 b2b506c683f241ac98479e8ae7656cc099f4bacfd3f1360b4330d7a666f72db5  .github/pull_request_template.md
@@ -8,10 +8,10 @@ ff03ad7a619226f88faabc124964de50147624318a083bc9b5c7b48385382c91  .github/workfl
 e9d0006f4c1b88e50d58717320f8bc16ad37b393db6792db943c2b58507754fa  .github/workflows/release.yml
 69d690071be59e8d707001ab86f0e57d82757aa3c3e72bf98185f73604f5af16  CONTRIBUTING.md
 d2918130f1ac9048e1c5b9ab4a9f2718706537081f2affc3e68104a69ee873c4  LICENSE
-99d16235683f54467c8d69abd871f2f95fc04628ac85a19f026ecfb8c3859dc6  Makefile
+2fbe9cbf2da14efc677c1c6dc800a035a3f62b4bc47cb40db25d6222ca6b0735  Makefile
 b09ae100fd732709b1cb39685e1f453da01af152371c950937755d7de3b9bba6  README.md
 e0d75c734ced20a3b3c358818898446f1e0a24e7d4458952e582ac94bbf1faaa  ROADMAP.md
-31e56d494aa4e0525fbe6f27d0255186277f97cbd1c1cce5f7f55f99c1964cd3  THIRD_PARTY_NOTICES.md
+83511f9123425f9485e9d6f7798241ed7fd5c95a8edc42b725df3edfcd53a6f1  THIRD_PARTY_NOTICES.md
 5a7ab163924aab3c9cce6114c94f850c07c891017aaa2aaae3316d14aab7fd7d  bench/bench.cpp
 5e8919e5f9037a6c7f5ce5dc33a6eb8ad73d3cc396d5503bc890099f274a0560  bench/protocol.hpp
 bf2dcb1bd6f5db09eafb778a68184e75a67193affa3a7414e290431f05877bca  blocks/tuner/.gitignore
@@ -141,6 +141,7 @@ b1a8498bd973c773108d284297cea96b2ef169ce8cf6e26a347417c232fc1277  hosts/clap/tes
 ec016377bb86929a064895b43e6533061d6eacfeb172344ba5e40a1ce1583f47  hosts/clap/tests/reaper-smoke.lua
 50320ccdac1aa32ca57c9d87d82d07234b6dde5790ebf96c65a394573b65c48b  hosts/clap/tests/wav.hpp
 004106d738b2b3384c592708c2660db93d348ba0e3bf4e5816de5122248e6aea  hosts/clap/traits.hpp
+ccab6d04f0a04545f2009b655fcbdf46bbca17fe042526a00cd4514730843a29  hosts/common/cab_swap.hpp
 1418fa07dbbc8cacd97726623b64417bff884004726efd04226b9f264c28298c  hosts/common/display.hpp
 2a945c68d96879b468bcfe0e1828ef115e69ad6c0c9cc2d398c65732e25c8dcf  hosts/common/hold.hpp
 67d2581b74bb60130369dfd7c36c261c9265d1fcc6489b3c8d75375e1f84f839  hosts/common/host_clock.hpp
@@ -226,6 +227,7 @@ bdd8143278628118b7ee46330824f6d99022f0dbcd623868d9fa8e09cd2fc529  hosts/lv2/tune
 fa334fd6e8481a3c8d6d6d9fd8b73e383411a19aad6ac3a2efacb3c4062b0076  hosts/render/rig_render.cpp
 4f190f48264fc9458dd3ef0f19f29807e187940cd3e2f42c6afc301f05980186  hosts/render/tuner_csv.cpp
 4b2635e669e6c84acbd6d0afcacea9631f63d5a9889df5430702dca32202e111  hosts/render/tuner_csv_diff.py
+f2452f4804161a85f9c5352b235c28a6fc6634359327c572ed7af55bcaa8123e  hosts/tests/test_cab_swap_owns_taps.cpp
 b6cc7da0e324458d7dbfa49f05b29d5d56b3ef9c9eaf0e6f4877fc6227dbe480  hosts/tests/test_host_audio.cpp
 8559c84df869cdaa5f4200d8503018fa9ba54208a164f9313bf2e3523676e17b  hosts/tests/test_hosts.cpp
 0df1cb5db90ebb2165cb5b56e97c3525d835a66c2a09e4ea670bb22c4f6943e9  hosts/tests/test_rig.cpp
