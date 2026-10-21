@@ -1,4 +1,4 @@
-# Written by tools/export-public from the squatch-dsp development tree at 6eb0d4afb29d532b1abaa2bb0af31f78e9be1eb1 (docs/benchmarks/daisy-seed3.md, hosts/daisy/README.md, hosts/daisy/THIRD_PARTY.md only).
+# Written by tools/export-public from the squatch-dsp development tree at 8b022a320dc85448c820dc4e0250d159bf962af2 (THIRD_PARTY_NOTICES.md, include/squatch/dsp/crossfade.hpp, src/crossfade.cpp, tests/test_crossfade.cpp only).
 # Do not edit these files here: change them upstream and export again (see the README).
 b1f7ed26a41e8cc4072e6ff565f628c0ee6445997f78e28eb3e06d67ca7a3bb8  .github/FUNDING.yml
 b2b506c683f241ac98479e8ae7656cc099f4bacfd3f1360b4330d7a666f72db5  .github/pull_request_template.md
@@ -11,6 +11,7 @@ d2918130f1ac9048e1c5b9ab4a9f2718706537081f2affc3e68104a69ee873c4  LICENSE
 ad4f458aa8a6300360a7bcc599d4662cda6af1eb5d1a516628bf13ca58fae517  Makefile
 b09ae100fd732709b1cb39685e1f453da01af152371c950937755d7de3b9bba6  README.md
 e0d75c734ced20a3b3c358818898446f1e0a24e7d4458952e582ac94bbf1faaa  ROADMAP.md
+143a830f60b6c675eeeeef9f5f55e221a53312bd87cc8ac84fdeaecb0fe30e02  THIRD_PARTY_NOTICES.md
 4ac8a3cd32d7a331a57bada02c933c18874d19049f2941fa18518b60070e41a4  bench/bench.cpp
 bf2dcb1bd6f5db09eafb778a68184e75a67193affa3a7414e290431f05877bca  blocks/tuner/.gitignore
 e78356b3bf840cbb8610fc15d0b99361b5f49078e3a26f3bf5f5eb201a41abb7  blocks/tuner/Makefile
@@ -273,6 +274,7 @@ f9814556d159576085699d3917d7ad77ea11723dfb43190559550884695c6c3d  include/squatc
 6e277aac1649488a5276ed78eb6c481951d9a130ad0b30b319ee2f4fa53ca70e  include/squatch/dsp/contracts/nam_amp.hpp
 fbdd28293d2a4d87a84709d2dd7c5639332289d2280f42142ca1a10128f5725d  include/squatch/dsp/contracts/trail_od.hpp
 1e11a9de5c28f043d4521660f41692d4e3a77dedc66fd3f8c5176e124c0d55f6  include/squatch/dsp/contracts/tuner.hpp
+bd5fe6bac0ffefa6810f4bbe4a1a16e79801de46b0970692d377f49de874c04c  include/squatch/dsp/crossfade.hpp
 dc0ec042198afa3c0662ec27f44405806d9d7ef7308cd6584adab567facfc4cc  include/squatch/dsp/denormal.hpp
 5a82217e0ce0a535382304163cb934d9b3b3d4690c8a8025325352e77e9fee60  include/squatch/dsp/fft.hpp
 04979750830634d9a0e0c68190ac8ec5eba4f04402c12dc6473de984f486973c  include/squatch/dsp/latest.hpp
@@ -286,6 +288,7 @@ b8d0b1e5f500733db7220959af6a34a957c2e2039d95af3a04c2bffef7896ebb  src/cabinet.cp
 a841b0c89b6b3cb393313a6836196d3336ed4bd2231ac1efc0dd6e49b95a787b  src/chain.cpp
 dbc49ac3d99b30ea21717a8c44f891b24914ec7e79f1e8e78de307903678c37d  src/claw.cpp
 6667636233f58322cb8316078d565c0346f2f3e49c6adbbe7d4b04f4b97d4e30  src/comp.cpp
+bff702e28818d3d4cc3a0a91652f33dd3fcf398c9efc9d394f434c2609a527c9  src/crossfade.cpp
 e3336c73a8fe87f24b58f9be7d73543191df6d3cd14812b9b817572f86686300  src/crunch.cpp
 08414582637fe48578438db71cf06367ac65e505a0078f3e37d3183cb46269f5  src/eq.cpp
 997aaaf93bb621b82e9005b7c03c1ce57a9df3060eed02715839b77a908c0122  src/fft.cpp
@@ -347,6 +350,7 @@ e84f41622f55f6e9ff217b641355209df9e96c92e8edb35c958cc19eae32faae  tests/test_cab
 7a158786f2cbff7e1a1c381da8f63afa294bb5c0cf59b2a6aead8a66dc88ca21  tests/test_claw.cpp
 ca83fc10ab45b3a19cbd5a4171d0514ff4ce9083228324edce46d586a4082f6f  tests/test_contract.cpp
 06aad091cb504eba73c1096336701e9b7cf3b96b08609123ac491a52d699d4b7  tests/test_core.cpp
+ebfb14537808615492d146a1ec4fd0e14a111dbd6e515def69a85346fad514f7  tests/test_crossfade.cpp
 c8466da66780da5ba501794aed9e96e98e61737e7095860c42189d289e61c88f  tests/test_eq.cpp
 700536b759ef2e8e2424738d3478cfe1935f2d1e88bbb9a8942de47130267126  tests/test_gate.cpp
 496af24030c58f117ab29d4dc3e7d234a38037755b4a2a00908384b536b48708  tests/test_interface.cpp
