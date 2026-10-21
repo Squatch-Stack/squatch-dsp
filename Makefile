@@ -75,7 +75,7 @@ $(BUILD)/test_queue_threads: tests/test_queue_threads.cpp $(HEADERS) | $(BUILD)
 # one memory ordering of the handoff weakened (SQUATCH_BREAK_HANDOFF=1,2,3) and requires
 # ThreadSanitizer to report a data race each time: a guard only counts if breaking it fails.
 # TSan refuses the Pi 5's 47-bit address space (see HOST_SAN below), so this is a Mac/x86 target.
-SWAP_THREADS := tests/test_model_swap_threads.cpp src/model_swap.cpp src/cabinet.cpp src/crossfade.cpp src/fft.cpp
+SWAP_THREADS := tests/test_model_swap_threads.cpp src/model_swap.cpp src/cabinet.cpp src/crossfade.cpp src/tail_convolver.cpp src/fft.cpp
 
 $(BUILD)/test_swap_tsan: $(SWAP_THREADS) $(HEADERS) tests/signals.hpp | $(BUILD)
 	$(CXX) $(TSAN) -o $@ $(SWAP_THREADS) -lpthread

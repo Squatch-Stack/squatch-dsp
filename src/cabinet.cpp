@@ -12,6 +12,11 @@ bool validPartition(int p) {
   return p >= Cabinet::kMinPartition && p <= Cabinet::kMaxPartition && (p & (p - 1)) == 0;
 }
 
+bool validTail(Cabinet::Plan plan) {
+  const int t = plan.tail;
+  return t == 0 || (t >= plan.partition && (t & (t - 1)) == 0 && t <= (1 << 20));
+}
+
 float dot(const float* a, const float* b, int n) {
   float s0 = 0.0f, s1 = 0.0f, s2 = 0.0f, s3 = 0.0f;  // four sums: independent chains vectorise
   int i = 0;
@@ -29,11 +34,29 @@ Cabinet::Cabinet() {
   highcut_.jump(kParams[Highcut].def);
 }
 
-void Cabinet::configure(const float* ir, int length, int partition, bool cuts) {
+// The long plan. Rik Hemsley's table (see tail_convolver.hpp) is partitions of 1024 and a tail tier
+// of 8192 past 48000 taps, 16384 past 240000, tuned to his FFT. Measured on ours (results/
+// bench-long-mac.md, tuning runs in the commit message) smaller steps win: partitions of 256, and
+// a tail of 4096 taps from 32768 taps, 8192 from 240000.
+Cabinet::Plan Cabinet::planFor(int length, int partition, Engine engine) {
+  const bool plain = engine == Engine::Partitioned || (engine == Engine::Auto && length <= kLongTaps);
+  if (plain) return {partition, 0};
+  if (length <= 32768) return {256, 0};
+  return {256, length <= 240000 ? 4096 : 8192};
+}
+
+void Cabinet::configure(const float* ir, int length, int partition, bool cuts, Engine engine) {
   const bool usable = ir && length > 0 && validPartition(partition);
+  if (!usable) return configure(nullptr, 0, Plan{kMinPartition, 0}, cuts);
+  configure(ir, length, planFor(length, partition, engine), cuts);
+}
+
+void Cabinet::configure(const float* ir, int length, Plan plan, bool cuts) {
+  const bool usable = ir && length > 0 && validPartition(plan.partition) && validTail(plan);
   source_ = usable ? ir : kIdentity;
   sourceLength_ = usable ? length : 1;
-  partition_ = usable ? partition : kMinPartition;
+  partition_ = usable ? plan.partition : kMinPartition;
+  tailPlan_ = usable ? plan.tail : 0;
   cuts_ = cuts;
   cutsOn_ = cuts && usable;
 }
@@ -90,7 +113,8 @@ bool Cabinet::take(Arena& mem) {
     xRe_ = mem.alloc<float>(tail), xIm_ = mem.alloc<float>(tail);
     fft_.prepare(2 * p_, mem);
   }
-  return !mem.failed();
+  const bool farOk = !tailOn_ || far_.prepare(source_, length_, tailBlock_, mem);  // after the rest: a measuring arena sees it all
+  return farOk && !mem.failed();
 }
 
 void Cabinet::prepare(const Setup& s, Arena& mem) {
@@ -103,7 +127,10 @@ void Cabinet::prepare(const Setup& s, Arena& mem) {
   designCuts();
   p_ = partition_;
   length_ = sourceLength_;
-  parts_ = (length_ + p_ - 1) / p_;
+  tailOn_ = tailPlan_ > 0 && length_ > 2 * tailPlan_;
+  tailBlock_ = tailOn_ ? tailPlan_ : 0;
+  coreLength_ = tailOn_ ? 2 * tailBlock_ : length_;
+  parts_ = (coreLength_ + p_ - 1) / p_;
   bins_ = p_ + 1;
   if (!take(mem)) return;
   loadHead();
@@ -115,7 +142,7 @@ void Cabinet::prepare(const Setup& s, Arena& mem) {
 void Cabinet::loadHead() {
   for (int m = 0; m < p_; ++m) {
     const int k = p_ - 1 - m;
-    head_[m] = k < length_ ? source_[k] : 0.0f;
+    head_[m] = k < coreLength_ ? source_[k] : 0.0f;
   }
 }
 
@@ -126,7 +153,7 @@ void Cabinet::loadTail() {
   for (int j = 1; j < parts_; ++j) {
     for (int i = 0; i < 2 * p_; ++i) {
       const int k = j * p_ + i;
-      workRe_[i] = i < p_ && k < length_ ? source_[k] * scale : 0.0f;
+      workRe_[i] = i < p_ && k < coreLength_ ? source_[k] * scale : 0.0f;
       workIm_[i] = 0.0f;
     }
     fft_.forward(workRe_, workIm_);
@@ -144,6 +171,7 @@ void Cabinet::reset() {
   if (parts_ > 1) clear(xRe_, (parts_ - 1) * bins_), clear(xIm_, (parts_ - 1) * bins_);
   histPos_ = pos_ = xNewest_ = 0;
   hp_.x1 = hp_.x2 = hp_.y1 = hp_.y2 = lp_.x1 = lp_.x2 = lp_.y1 = lp_.y2 = 0.0;
+  if (tailOn_) far_.reset();
 }
 
 void Cabinet::set(ParamId id, float value) {
@@ -159,9 +187,23 @@ void Cabinet::process(const float* in, float* out, int n) {
   if (!ready_) return clear(out, n);
   for (int done = 0; done < n;) {
     const int len = controlSegment(n - done);
-    for (int i = done; i < done + len; ++i) out[i] = cutsAndLevel(step(in[i]));  // step() reads in[i] first: in place is fine
+    run(in + done, out + done, len);
     done += len;
   }
+}
+
+// `len` samples with the filters settled. With a TailConvolver the far taps are added per sample,
+// and its work for those samples is run after them.
+void Cabinet::run(const float* in, float* out, int len) {
+  if (!tailOn_) {
+    for (int i = 0; i < len; ++i) out[i] = cutsAndLevel(step(in[i]));  // step() reads in[i] first: in place is fine
+    return;
+  }
+  for (int i = 0; i < len; ++i) {
+    const float x = in[i];  // read first: in place is fine
+    out[i] = cutsAndLevel(step(x) + far_.tick(x));
+  }
+  far_.work(len);
 }
 
 // One sample: the direct head over the last P inputs, plus the precomputed tail.

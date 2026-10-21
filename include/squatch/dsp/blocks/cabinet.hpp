@@ -28,11 +28,18 @@
 // apply 0.25 / sqrt(energy) if it wants the rig's level. docs/PARITY-FIXES-1.md has the arithmetic.
 // Mono: a stereo host runs one instance per channel. tail() is the response's length plus the
 // filters' ring-down (kCutTailSeconds).
+//
+// Long responses (more than kLongTaps) take a different plan, from the table in planFor():
+// a larger partition (the head is longer, there are far fewer partitions to multiply), and past
+// 32768 taps the taps from 2T on go to a TailConvolver, which works in partitions of T taps and
+// shares its transforms and multiplies out across the samples between blocks. See tail_convolver.hpp
+// for the credit. The first 2T taps keep the plan above, so the latency is still zero.
 #pragma once
 #include <squatch/dsp/block.hpp>
 #include <squatch/dsp/contracts/cabinet.hpp>
 #include <squatch/dsp/fft.hpp>
 #include <squatch/dsp/param.hpp>
+#include <squatch/dsp/tail_convolver.hpp>
 
 namespace squatch::dsp {
 
@@ -43,13 +50,32 @@ class Cabinet final : public Block, public contracts::CabinetContract {
   static constexpr double kCutTailSeconds = 0.25;  // a 20 Hz high-pass at Q 0.7 dB is 120 dB down by then
   static constexpr int kControlRate = 16;          // samples between filter redesigns while a cut moves
 
+  /// Longer responses than this take the long plan under Engine::Auto.
+  static constexpr int kLongTaps = 16384;
+
+  /// Which plan configure() uses. Auto: the caller's partition up to kLongTaps taps, the long plan above.
+  enum class Engine { Auto, Partitioned, Long };
+  /// How a response is cut: the head and uniform partitions of `partition` taps cover the first
+  /// 2 * tail taps (all of it when `tail` is 0), and a TailConvolver of `tail`-tap partitions the rest.
+  struct Plan {
+    int partition;
+    int tail;
+  };
+  /// The plan Auto and Long give a response of `length` taps (partition is used up to kLongTaps).
+  static Plan planFor(int length, int partition, Engine engine = Engine::Auto);
+
   Cabinet();
 
   /// Setup time only, before prepare(). The response is read (copied) by prepare(), so it must
   /// stay valid until then; it is at the sample rate the host will run. With no response, or a
   /// partition that is not a power of two in [kMinPartition, kMaxPartition], the block passes
   /// its input through unchanged.
-  void configure(const float* ir, int length, int partition = kDefaultPartition, bool cuts = true);
+  void configure(const float* ir, int length, int partition = kDefaultPartition, bool cuts = true,
+                 Engine engine = Engine::Auto);
+
+  /// As configure(), with the plan given: for tests and tuning. A tail that is not a power of
+  /// two no smaller than the partition is refused like a bad partition.
+  void configure(const float* ir, int length, Plan plan, bool cuts = true);
 
   void prepare(const Setup& s, Arena& mem) override;
   void process(const float* in, float* out, int n) override;
@@ -61,7 +87,10 @@ class Cabinet final : public Block, public contracts::CabinetContract {
   const BlockInfo& info() const override { return kInfo; }
 
   int length() const { return length_; }        // taps in use
-  int partitions() const { return parts_; }     // J, the head included
+  int partitions() const { return parts_; }     // J, the head included (of the first 2T taps with a tail)
+  int farPartitions() const { return far_.ready() ? far_.partitions() : 0; }  // the TailConvolver's
+  Plan plan() const { return {partition_, tailPlan_}; }  // as configured
+  const TailConvolver& far() const { return far_; }
   bool ready() const { return ready_; }
 
  private:
@@ -69,6 +98,7 @@ class Cabinet final : public Block, public contracts::CabinetContract {
   void loadHead();
   void loadTail();
   float step(float x);
+  void run(const float* in, float* out, int len);
   void finishBlock();
   void accumulate();
   int controlSegment(int left);  // advances the smoothers, redesigns a moving cut; samples to run
@@ -94,8 +124,13 @@ class Cabinet final : public Block, public contracts::CabinetContract {
   const float* source_ = nullptr;
   int sourceLength_ = 0;
   int partition_ = kDefaultPartition;
+  int tailPlan_ = 0;         // tail block asked for; 0 for none
 
   int p_ = 0, parts_ = 0, bins_ = 0, length_ = 0;
+  int coreLength_ = 0;       // taps the head and uniform partitions cover
+  int tailBlock_ = 0;
+  bool tailOn_ = false;
+  TailConvolver far_;
   float* head_ = nullptr;    // the first P taps, reversed, so a window of history is a dot product
   float* hist_ = nullptr;    // the last P inputs, stored twice so a window never wraps
   int histPos_ = 0;

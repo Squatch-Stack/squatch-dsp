@@ -22,11 +22,23 @@ class Fft {
   void forward(float* re, float* im) const { transform(re, im, 1.0f); }
   void inverse(float* re, float* im) const { transform(re, im, -1.0f); }
 
+  /// The same transform cut into steps a caller can spread over time: step 0 reorders the input
+  /// (bit reversal), steps 1..bits() are the butterfly passes. Each step has stepUnits() units;
+  /// run() does the units in `units` of one step (sign +1 forward, -1 inverse). Running every step
+  /// over its whole range, in order, gives exactly the bits forward()/inverse() give.
+  int bits() const { return bits_; }
+  int stepUnits(int step) const { return step == 0 ? swaps_ : size_ / 2; }
+  struct Range {
+    int from, to;
+  };
+  void run(float* re, float* im, float sign, int step, Range units) const;
+
  private:
   void transform(float* re, float* im, float sign) const;
   void reorder(float* re, float* im) const;
 
   int size_ = 0;
+  int bits_ = 0;
   int* swap_ = nullptr;      // bit-reversal permutation, as pairs to exchange
   int swaps_ = 0;
   float* cos_ = nullptr;     // cos(2 pi k / N), k < N/2
