@@ -1,4 +1,4 @@
-# Written by tools/export-public from the squatch-dsp development tree at 8b910501b2aaf0aa94b8ba461bf21037780b0918 (THIRD_PARTY_NOTICES.md, tests/glitch.hpp, tests/test_cabinet.cpp, tests/test_glitch.cpp, tests/test_tuner.cpp only).
+# Written by tools/export-public from the squatch-dsp development tree at cac9a217d4403ab6f276137c0bdb3b67dc8739f1 (THIRD_PARTY_NOTICES.md, include/squatch/dsp/blocks/bypass.hpp, src/bypass.cpp, tests/test_bypass.cpp only).
 # Do not edit these files here: change them upstream and export again (see the README).
 b1f7ed26a41e8cc4072e6ff565f628c0ee6445997f78e28eb3e06d67ca7a3bb8  .github/FUNDING.yml
 b2b506c683f241ac98479e8ae7656cc099f4bacfd3f1360b4330d7a666f72db5  .github/pull_request_template.md
@@ -11,7 +11,7 @@ d2918130f1ac9048e1c5b9ab4a9f2718706537081f2affc3e68104a69ee873c4  LICENSE
 ad4f458aa8a6300360a7bcc599d4662cda6af1eb5d1a516628bf13ca58fae517  Makefile
 b09ae100fd732709b1cb39685e1f453da01af152371c950937755d7de3b9bba6  README.md
 e0d75c734ced20a3b3c358818898446f1e0a24e7d4458952e582ac94bbf1faaa  ROADMAP.md
-6455c7494378d1b3af99f763d71f7d5fb120ac7b7ae2772a5aca1afb1f18c7d1  THIRD_PARTY_NOTICES.md
+7ea28a4f9b05e24fa62bb4a391071c8f530f34d955b14c01b6c761675fefa4e2  THIRD_PARTY_NOTICES.md
 4ac8a3cd32d7a331a57bada02c933c18874d19049f2941fa18518b60070e41a4  bench/bench.cpp
 bf2dcb1bd6f5db09eafb778a68184e75a67193affa3a7414e290431f05877bca  blocks/tuner/.gitignore
 e78356b3bf840cbb8610fc15d0b99361b5f49078e3a26f3bf5f5eb201a41abb7  blocks/tuner/Makefile
@@ -252,6 +252,7 @@ bb633eb9970d590b082ec7971be6e7897a39dda52a9794bc179ec60754862391  hosts/web/tune
 4e8c48368a1125395e84dc895f2a3af8f6b17f6e560e4a00c0b5f97cb53ce20c  include/squatch/dsp/arena.hpp
 00340ca0b3e2093a072270b086c1096712dd90d862ca28ad576b3533742a5643  include/squatch/dsp/block.hpp
 bb5a5b00606576a8f57790595cfe510e48a219917aaa6c967be0c533e150215b  include/squatch/dsp/blocks/biquad.hpp
+d9dd71469e51aa0e8a0d7a601aff41507cecb4c7eaa84b2c8bd5416533b87324  include/squatch/dsp/blocks/bypass.hpp
 97216e4d1e7f29812e69ff322d41f58462bab10447c7f1d6f2dff5b9e2439cb6  include/squatch/dsp/blocks/cabinet.hpp
 5be3bf524dfd02f4e6d13b17e9d814cfb621ce324d93657124a9d12346c3f766  include/squatch/dsp/blocks/claw.hpp
 ab6b88720dcc5f46c0624f8e5e4c441c43a3565237a389260ec174499288e517  include/squatch/dsp/blocks/comp.hpp
@@ -284,6 +285,7 @@ dc0ec042198afa3c0662ec27f44405806d9d7ef7308cd6584adab567facfc4cc  include/squatc
 e900c06982aa13a00f6238646ae6d005a23c1c889942e3b603f0f5d8805acb11  include/squatch/dsp/span.hpp
 26a51f4e1d3d94bb16505161e46d893e2d71419a62f1424d443f7a62e8c2062b  results/bench-mac.md
 6b5756f7c86eea54ce62322c6453c084d5eb0be5802dfbbbd95082fe45a809ac  src/biquad.cpp
+b864b486c8fb4cb4afb44c4f9e7873bf6811ded9fc862bca8e286afc640c83c5  src/bypass.cpp
 b8d0b1e5f500733db7220959af6a34a957c2e2039d95af3a04c2bffef7896ebb  src/cabinet.cpp
 a841b0c89b6b3cb393313a6836196d3336ed4bd2231ac1efc0dd6e49b95a787b  src/chain.cpp
 dbc49ac3d99b30ea21717a8c44f891b24914ec7e79f1e8e78de307903678c37d  src/claw.cpp
@@ -347,6 +349,7 @@ b3ab5fb058d1a9a3cb227752414a5ee89224e5d35774dcac66d010662723f3da  tests/lockcoun
 ad3db5f05d2f2fbbd3620b4b66836b61cbd4180eef4c95a2dc306b1b408d2e76  tests/runner.cpp
 6499ce8f3bb69a01537476fafe62f24dcec2267a95f2b4e11396520f90a70138  tests/signals.hpp
 6362ae4d6eb7fe81fdd3bdf46db1cd07d07281b353ac11fe44af5b692e90148c  tests/test_amp_fx.cpp
+1ab96f276dde148a93b1b2f022fd6007365bcf28b423e697ee43df6bcdfdc2e2  tests/test_bypass.cpp
 f5fdd60818153964af29c669096096e3195aea13e5a859fba1dac20690727aed  tests/test_cabinet.cpp
 7a158786f2cbff7e1a1c381da8f63afa294bb5c0cf59b2a6aead8a66dc88ca21  tests/test_claw.cpp
 ca83fc10ab45b3a19cbd5a4171d0514ff4ce9083228324edce46d586a4082f6f  tests/test_contract.cpp
