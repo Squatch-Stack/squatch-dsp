@@ -20,20 +20,23 @@ HEADERS := $(shell find include -name '*.hpp')
 SRC := $(wildcard src/*.cpp)
 OBJ := $(SRC:src/%.cpp=$(BUILD)/obj/%.o)
 TEST_SRC := $(filter-out tests/test_queue_threads.cpp tests/test_model_swap_threads.cpp,$(wildcard tests/*.cpp))
-TEST_DEPS := $(wildcard tests/*.hpp) $(wildcard tests/golden/*.inc)
+TEST_DEPS := $(wildcard tests/*.hpp) $(wildcard tests/golden/*.inc) bench/protocol.hpp
 
 # Locks taken inside process() are counted by an interposing dylib (dyld honours __interpose in
 # a linked library). Elsewhere the lock check is reported as unmeasured, never as passed.
 ifeq ($(UNAME),Darwin)
 LOCKS := $(BUILD)/liblockcount.dylib
 LOCK_LINK := -L$(BUILD) -llockcount -Wl,-rpath,@loader_path
-BENCH_OUT ?= results/bench-mac.md
+BENCH_TAG ?= mac
 else
 TEST_DEFS := -DSQUATCH_NO_LOCK_COUNT
-BENCH_OUT ?= results/bench-$(shell uname -m).md
+BENCH_TAG ?= $(shell uname -m)
 endif
+# BENCH_TAG=pi5 names the files results/bench-pi5.md and results/bench-long-pi5.md. BENCH_NOTES=text adds a line
+# (governor, temperature) under the header of both.
+BENCH_OUT ?= results/bench-$(BENCH_TAG).md
 
-.PHONY: all lib test test-tsan test-tsan-negative lint headers bench golden ci live rig wasm wasm-test wasm-shots record-session-test clean FORCE \
+.PHONY: all lib test test-tsan test-tsan-negative lint headers bench bench-long golden ci live rig wasm wasm-test wasm-shots record-session-test clean FORCE \
         contracts contracts-check tuner-csv plugins plugins-install plugins-check export-check release-scan-test lv2 lv2-linux
 all: lib $(BUILD)/tests $(BUILD)/bench
 
@@ -231,7 +234,7 @@ lv2:
 lv2-linux:
 	hosts/lv2/build-linux.sh --lint
 
-$(BUILD)/bench: bench/bench.cpp $(BUILD)/libsquatch-dsp.a $(HEADERS) | $(BUILD)
+$(BUILD)/bench: bench/bench.cpp bench/protocol.hpp $(BUILD)/libsquatch-dsp.a $(HEADERS) | $(BUILD)
 	$(CXX) $(RELEASE) -o $@ $< $(BUILD)/libsquatch-dsp.a
 
 # Benches of their own (bench/bench_NAME.cpp): make build/bench_NAME
@@ -294,6 +297,13 @@ bench: $(BUILD)/bench
 	./$(BUILD)/bench "$$(sysctl -n machdep.cpu.brand_string 2>/dev/null || uname -m)" \
 	  "$$($(CXX) --version | head -1)" > $(BENCH_OUT)
 	cat $(BENCH_OUT)
+
+# Cabinet over 4k to 240k taps (results/bench-long-*.md); minutes, not seconds.
+bench-long: $(BUILD)/bench
+	mkdir -p results
+	./$(BUILD)/bench "$$(sysctl -n machdep.cpu.brand_string 2>/dev/null || uname -m)" \
+	  "$$($(CXX) --version | head -1)" long > results/bench-long-$(BENCH_TAG).md
+	cat results/bench-long-$(BENCH_TAG).md
 
 # Each public header compiles on its own, with the core's flags.
 headers:

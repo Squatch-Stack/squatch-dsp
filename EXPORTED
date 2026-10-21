@@ -1,4 +1,4 @@
-# Written by tools/export-public from the squatch-dsp development tree at dd0f8c198ce45bfe2a6fb51d25e3d87d16a1921e (Makefile, THIRD_PARTY_NOTICES.md, include/squatch/dsp/blocks/cabinet.hpp, include/squatch/dsp/fft.hpp, include/squatch/dsp/tail_convolver.hpp, src/cabinet.cpp, src/fft.cpp, src/tail_convolver.cpp, tests/test_long_ir.cpp only).
+# Written by tools/export-public from the squatch-dsp development tree at 37a3f875f2675f33093dcfd7ae0a9732a2033d23 (Makefile, THIRD_PARTY_NOTICES.md, bench/bench.cpp, bench/protocol.hpp, results/bench-long-mac.md, results/bench-long-r1-pi5.md, results/bench-long-r1-x86.md, results/bench-long-r2-pi5.md, results/bench-long-r2-x86.md, results/bench-long-r3-pi5.md, results/bench-long-r3-x86.md, results/bench-mac.md, tests/test_bench_protocol.cpp only).
 # Do not edit these files here: change them upstream and export again (see the README).
 b1f7ed26a41e8cc4072e6ff565f628c0ee6445997f78e28eb3e06d67ca7a3bb8  .github/FUNDING.yml
 b2b506c683f241ac98479e8ae7656cc099f4bacfd3f1360b4330d7a666f72db5  .github/pull_request_template.md
@@ -8,11 +8,12 @@ ff03ad7a619226f88faabc124964de50147624318a083bc9b5c7b48385382c91  .github/workfl
 e9d0006f4c1b88e50d58717320f8bc16ad37b393db6792db943c2b58507754fa  .github/workflows/release.yml
 69d690071be59e8d707001ab86f0e57d82757aa3c3e72bf98185f73604f5af16  CONTRIBUTING.md
 d2918130f1ac9048e1c5b9ab4a9f2718706537081f2affc3e68104a69ee873c4  LICENSE
-1ccc66089968eccdc0084b94091977f842c3850115e5ef5a8e6e33fcf7ac149f  Makefile
+99d16235683f54467c8d69abd871f2f95fc04628ac85a19f026ecfb8c3859dc6  Makefile
 b09ae100fd732709b1cb39685e1f453da01af152371c950937755d7de3b9bba6  README.md
 e0d75c734ced20a3b3c358818898446f1e0a24e7d4458952e582ac94bbf1faaa  ROADMAP.md
-f26e7fc44a9d021099e032ed258f33148f2bfa03754ae543e2307103b73671d9  THIRD_PARTY_NOTICES.md
-4ac8a3cd32d7a331a57bada02c933c18874d19049f2941fa18518b60070e41a4  bench/bench.cpp
+31e56d494aa4e0525fbe6f27d0255186277f97cbd1c1cce5f7f55f99c1964cd3  THIRD_PARTY_NOTICES.md
+5a7ab163924aab3c9cce6114c94f850c07c891017aaa2aaae3316d14aab7fd7d  bench/bench.cpp
+5e8919e5f9037a6c7f5ce5dc33a6eb8ad73d3cc396d5503bc890099f274a0560  bench/protocol.hpp
 bf2dcb1bd6f5db09eafb778a68184e75a67193affa3a7414e290431f05877bca  blocks/tuner/.gitignore
 e78356b3bf840cbb8610fc15d0b99361b5f49078e3a26f3bf5f5eb201a41abb7  blocks/tuner/Makefile
 d751a08411bcb7dc745500d1798cddf814b3a7fa7889d43b7e75cab6b7e9578f  blocks/tuner/README.md
@@ -285,7 +286,14 @@ dc0ec042198afa3c0662ec27f44405806d9d7ef7308cd6584adab567facfc4cc  include/squatc
 06c96a0b286fda45fc43db2f921a7c488f81b3847ddb417a3d6155d5d25e54d5  include/squatch/dsp/registry.hpp
 e900c06982aa13a00f6238646ae6d005a23c1c889942e3b603f0f5d8805acb11  include/squatch/dsp/span.hpp
 23983e7a6e9607cb6bedb1695276e47316a43fc1e7bfe5bf2a8c68414c11e923  include/squatch/dsp/tail_convolver.hpp
-26a51f4e1d3d94bb16505161e46d893e2d71419a62f1424d443f7a62e8c2062b  results/bench-mac.md
+9805b6b24434976ac077efd652f51d6007ab4cd4c0fdfe13175ea472af7b31e1  results/bench-long-mac.md
+fed7486a3227d48d291bd2a62e05e7d2465ef905193dafbe7e237ee814cb3ef3  results/bench-long-r1-pi5.md
+0ccde8aff251bd2d97eb0c5510fc99f3c365e8b3be1e2ce4b16214ec63f015f6  results/bench-long-r1-x86.md
+7c07dab36341e4d509a31627a38d56ef791c549554969fdea2fd2bb32a619c8b  results/bench-long-r2-pi5.md
+ac1f07429d9a68a1075b3237a0729d5c7dfc2e77ae09357cd39c35b5673e1663  results/bench-long-r2-x86.md
+2032c70fb03a1586bf1ec6d888627e331f22e57e1b89dbf81679389c8d97e50f  results/bench-long-r3-pi5.md
+532c4a16df357834fadadef74e25ab6e3f5e45061b2a5fe7e9e5f110aedfe4e4  results/bench-long-r3-x86.md
+4aa697e36ac027ce318d72004a189245cac64e2bb8816b9ad9f80d89ff827c71  results/bench-mac.md
 6b5756f7c86eea54ce62322c6453c084d5eb0be5802dfbbbd95082fe45a809ac  src/biquad.cpp
 b864b486c8fb4cb4afb44c4f9e7873bf6811ded9fc862bca8e286afc640c83c5  src/bypass.cpp
 bc6c39f5f7cd9fc0046f158c24a89aea05a05d211829577739e4967f062b85fa  src/cabinet.cpp
@@ -353,6 +361,7 @@ b3ab5fb058d1a9a3cb227752414a5ee89224e5d35774dcac66d010662723f3da  tests/lockcoun
 ad3db5f05d2f2fbbd3620b4b66836b61cbd4180eef4c95a2dc306b1b408d2e76  tests/runner.cpp
 6499ce8f3bb69a01537476fafe62f24dcec2267a95f2b4e11396520f90a70138  tests/signals.hpp
 6362ae4d6eb7fe81fdd3bdf46db1cd07d07281b353ac11fe44af5b692e90148c  tests/test_amp_fx.cpp
+047804137edc66a846fcc54db1dc1cbcfcb605d52b9d5d89d2af34929d1be0ed  tests/test_bench_protocol.cpp
 1ab96f276dde148a93b1b2f022fd6007365bcf28b423e697ee43df6bcdfdc2e2  tests/test_bypass.cpp
 f5fdd60818153964af29c669096096e3195aea13e5a859fba1dac20690727aed  tests/test_cabinet.cpp
 7a158786f2cbff7e1a1c381da8f63afa294bb5c0cf59b2a6aead8a66dc88ca21  tests/test_claw.cpp

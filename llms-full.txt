@@ -29,6 +29,13 @@ Every file linked from [llms.txt](llms.txt), inlined in the same order (director
 - blocks/tuner/results/real-variants.md (Optional: Squatch Tuner: real DI accuracy, configuration variants)
 - blocks/tuner/results/real.md (Optional: Squatch Tuner: real DI accuracy)
 - blocks/tuner/results/synth.md (Optional: Squatch Tuner: synthetic accuracy)
+- results/bench-long-mac.md (Optional: squatch-dsp cabinet benchmark, long responses)
+- results/bench-long-r1-pi5.md (Optional: squatch-dsp cabinet benchmark, long responses)
+- results/bench-long-r1-x86.md (Optional: squatch-dsp cabinet benchmark, long responses)
+- results/bench-long-r2-pi5.md (Optional: squatch-dsp cabinet benchmark, long responses)
+- results/bench-long-r2-x86.md (Optional: squatch-dsp cabinet benchmark, long responses)
+- results/bench-long-r3-pi5.md (Optional: squatch-dsp cabinet benchmark, long responses)
+- results/bench-long-r3-x86.md (Optional: squatch-dsp cabinet benchmark, long responses)
 - results/bench-mac.md (Optional: squatch-dsp CPU benchmark)
 - bench/ (Optional: bench/)
 - blocks/ (Optional: blocks/)
@@ -322,6 +329,7 @@ Source repositories (links pinned to the commit adapted from):
 - [pedal-science/namchain](https://github.com/pedal-science/namchain) at e208bb869069b15a7331b452e03b7dc88726ffee
 - [rikkus/OptimisationWorkOnNeuralAmpModelerCore](https://github.com/rikkus/OptimisationWorkOnNeuralAmpModelerCore)
   at 010a0e53bee7ea8867d8c65917e5bdea3babf60f (a fork of NeuralAmpModelerCore, MIT, below)
+- [pedal-science/NAMBench](https://github.com/pedal-science/NAMBench) at 0a5ef0086852294f8450606e78c44760e1055e35
 
 | What here | Adapted from |
 |---|---|
@@ -329,6 +337,7 @@ Source repositories (links pinned to the commit adapted from):
 | `tests/glitch.hpp`, `tests/test_glitch.cpp`; applied in `tests/test_bypass.cpp`, `tests/test_model_swap.cpp`, `tests/test_cabinet.cpp`, `tests/test_tuner.cpp` | [glitch.h](https://github.com/pedal-science/namchain/blob/e208bb869069b15a7331b452e03b7dc88726ffee/include/namchain/glitch.h), [glitch.cpp](https://github.com/pedal-science/namchain/blob/e208bb869069b15a7331b452e03b7dc88726ffee/src/glitch/glitch.cpp), [test_glitch.cpp](https://github.com/pedal-science/namchain/blob/e208bb869069b15a7331b452e03b7dc88726ffee/tests/test_glitch.cpp) (the four rules and their defaults; rewritten, not copied) |
 | `include/squatch/dsp/blocks/model_swap.hpp`, `src/model_swap.cpp`, `include/squatch/dsp/blocks/bypass.hpp` and `src/bypass.cpp` (the warm-up before a fade), the cases in `tests/test_model_swap.cpp` | [transitions.md](https://github.com/pedal-science/namchain/blob/e208bb869069b15a7331b452e03b7dc88726ffee/docs/transitions.md), [lookback.h](https://github.com/pedal-science/namchain/blob/e208bb869069b15a7331b452e03b7dc88726ffee/include/namchain/lookback.h), [crossfade.h](https://github.com/pedal-science/namchain/blob/e208bb869069b15a7331b452e03b7dc88726ffee/include/namchain/rt/crossfade.h) (the plan: warm over the lookback, then crossfade; no code copied) |
 | `include/squatch/dsp/tail_convolver.hpp`, `src/tail_convolver.cpp`, the long plan in `src/cabinet.cpp`, the stepped transform in `src/fft.cpp` | [linear.cpp](https://github.com/rikkus/OptimisationWorkOnNeuralAmpModelerCore/blob/010a0e53bee7ea8867d8c65917e5bdea3babf60f/NAM/linear.cpp), [linear.h](https://github.com/rikkus/OptimisationWorkOnNeuralAmpModelerCore/blob/010a0e53bee7ea8867d8c65917e5bdea3babf60f/NAM/linear.h), [linear.rst](https://github.com/rikkus/OptimisationWorkOnNeuralAmpModelerCore/blob/010a0e53bee7ea8867d8c65917e5bdea3babf60f/docs/linear.rst) (the partition table and the tail tier's scheduling; algorithm only, no code copied) |
+| `bench/protocol.hpp`, the second table of `bench/bench.cpp`, `tests/test_bench_protocol.cpp` | [nb_protocol.h](https://github.com/pedal-science/NAMBench/blob/0a5ef0086852294f8450606e78c44760e1055e35/Tools/nb_protocol.h), [nam_ir_benchmark.cpp](https://github.com/pedal-science/NAMBench/blob/0a5ef0086852294f8450606e78c44760e1055e35/Tools/nam_ir_benchmark.cpp) |
 
 ```text
 MIT License
@@ -2403,20 +2412,23 @@ HEADERS := $(shell find include -name '*.hpp')
 SRC := $(wildcard src/*.cpp)
 OBJ := $(SRC:src/%.cpp=$(BUILD)/obj/%.o)
 TEST_SRC := $(filter-out tests/test_queue_threads.cpp tests/test_model_swap_threads.cpp,$(wildcard tests/*.cpp))
-TEST_DEPS := $(wildcard tests/*.hpp) $(wildcard tests/golden/*.inc)
+TEST_DEPS := $(wildcard tests/*.hpp) $(wildcard tests/golden/*.inc) bench/protocol.hpp
 
 # Locks taken inside process() are counted by an interposing dylib (dyld honours __interpose in
 # a linked library). Elsewhere the lock check is reported as unmeasured, never as passed.
 ifeq ($(UNAME),Darwin)
 LOCKS := $(BUILD)/liblockcount.dylib
 LOCK_LINK := -L$(BUILD) -llockcount -Wl,-rpath,@loader_path
-BENCH_OUT ?= results/bench-mac.md
+BENCH_TAG ?= mac
 else
 TEST_DEFS := -DSQUATCH_NO_LOCK_COUNT
-BENCH_OUT ?= results/bench-$(shell uname -m).md
+BENCH_TAG ?= $(shell uname -m)
 endif
+# BENCH_TAG=pi5 names the files results/bench-pi5.md and results/bench-long-pi5.md. BENCH_NOTES=text adds a line
+# (governor, temperature) under the header of both.
+BENCH_OUT ?= results/bench-$(BENCH_TAG).md
 
-.PHONY: all lib test test-tsan test-tsan-negative lint headers bench golden ci live rig wasm wasm-test wasm-shots record-session-test clean FORCE \
+.PHONY: all lib test test-tsan test-tsan-negative lint headers bench bench-long golden ci live rig wasm wasm-test wasm-shots record-session-test clean FORCE \
         contracts contracts-check tuner-csv plugins plugins-install plugins-check export-check release-scan-test lv2 lv2-linux
 all: lib $(BUILD)/tests $(BUILD)/bench
 
@@ -2614,7 +2626,7 @@ lv2:
 lv2-linux:
 	hosts/lv2/build-linux.sh --lint
 
-$(BUILD)/bench: bench/bench.cpp $(BUILD)/libsquatch-dsp.a $(HEADERS) | $(BUILD)
+$(BUILD)/bench: bench/bench.cpp bench/protocol.hpp $(BUILD)/libsquatch-dsp.a $(HEADERS) | $(BUILD)
 	$(CXX) $(RELEASE) -o $@ $< $(BUILD)/libsquatch-dsp.a
 
 # Benches of their own (bench/bench_NAME.cpp): make build/bench_NAME
@@ -2677,6 +2689,13 @@ bench: $(BUILD)/bench
 	./$(BUILD)/bench "$$(sysctl -n machdep.cpu.brand_string 2>/dev/null || uname -m)" \
 	  "$$($(CXX) --version | head -1)" > $(BENCH_OUT)
 	cat $(BENCH_OUT)
+
+# Cabinet over 4k to 240k taps (results/bench-long-*.md); minutes, not seconds.
+bench-long: $(BUILD)/bench
+	mkdir -p results
+	./$(BUILD)/bench "$$(sysctl -n machdep.cpu.brand_string 2>/dev/null || uname -m)" \
+	  "$$($(CXX) --version | head -1)" long > results/bench-long-$(BENCH_TAG).md
+	cat results/bench-long-$(BENCH_TAG).md
 
 # Each public header compiles on its own, with the core's flags.
 headers:
@@ -3042,13 +3061,292 @@ Steady window 0.5-1.5 s after the pluck unless stated.
 | E6 | 9.656 / - | 3.202 / 215 | 0.407 / 428 | 0.017 / 71 | 0.013 / 81 | 0.257 / 89 | 0.013 / 81 | 0.749 / 156 | 0.248 / 121 |
 
 ================================================================================
+FILE: results/bench-long-mac.md    [Optional: squatch-dsp cabinet benchmark, long responses]
+================================================================================
+
+<!-- SPDX-License-Identifier: MIT -->
+# squatch-dsp cabinet benchmark, long responses
+
+Apple M1 Max, Apple clang version 21.0.0 (clang-2100.3.34.2),
+`-O3 -fno-exceptions -fno-rtti`. `make bench-long` writes this file.
+
+The NAMBench method as in bench.md (see THIRD_PARTY_NOTICES.md), with passes of 2 s of audio and 6
+passes for the block percentile. core_percent is the share of one core; p99 and max are one block's
+time as a percent of its own deadline (above 100% a callback was late). The cut filters are off.
+
+| engine | taps | size | core_percent | block p99 | block max | spread | attempts |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| old: partition 64 | 4096 | 32 | 0.263% | 0.462% | 4.419% | 1.14% | 1 |
+| old: partition 64 | 4096 | 128 | 0.264% | 0.383% | 2.530% | 1.64% | 1 |
+| auto (long plan above 16384) | 4096 | 32 | 0.265% | 0.469% | 7.725% | 1.02% | 1 |
+| auto (long plan above 16384) | 4096 | 128 | 0.263% | 0.342% | 2.514% | 0.62% | 1 |
+| old: partition 64 | 16384 | 32 | 0.572% | 1.375% | 85.119% | 1.06% | 1 |
+| old: partition 64 | 16384 | 128 | 0.573% | 0.970% | 4.656% | 3.00% | 1 |
+| auto (long plan above 16384) | 16384 | 32 | 0.573% | 1.100% | 7.013% | 1.25% | 1 |
+| auto (long plan above 16384) | 16384 | 128 | 0.573% | 0.889% | 10.050% | 2.46% | 1 |
+| old: partition 64 | 48000 | 32 | 1.264% | 2.844% | 46.137% | 0.93% | 1 |
+| old: partition 64 | 48000 | 128 | 1.260% | 3.083% | 71.873% | 1.52% | 1 |
+| auto (long plan above 16384) | 48000 | 32 | 0.725% | 2.731% | 30.925% | 2.23% | 1 |
+| auto (long plan above 16384) | 48000 | 128 | no run agreed within 3% in 5 attempts | | | | |
+| old: partition 64 | 240000 | 32 | 5.932% | 18.944% | 65.681% | 2.85% | 4 |
+| old: partition 64 | 240000 | 128 | 6.064% | 11.679% | 19.448% | 1.64% | 2 |
+| auto (long plan above 16384) | 240000 | 32 | 0.855% | 4.150% | 32.344% | 2.53% | 1 |
+| auto (long plan above 16384) | 240000 | 128 | 0.848% | 2.342% | 8.853% | 1.35% | 2 |
+
+================================================================================
+FILE: results/bench-long-r1-pi5.md    [Optional: squatch-dsp cabinet benchmark, long responses]
+================================================================================
+
+<!-- SPDX-License-Identifier: MIT -->
+# squatch-dsp cabinet benchmark, long responses
+
+aarch64, g++ (Debian 14.2.0-19) 14.2.0,
+`-O3 -fno-exceptions -fno-rtti`. `make bench-long` writes this file.
+
+Conditions (added by hand from the run's own log; the long table did not print them when it ran): Raspberry Pi
+5 Model B Rev 1.0, kernel 6.18.50+rpt-rpi-2712, g++ (Debian 14.2.0-19) 14.2.0, flags `-std=c++17
+-fno-exceptions -fno-rtti -Wall -Wextra -Wpedantic -Wshadow -Werror -Iinclude -Iblocks/tuner/include -O3`,
+governor ondemand (unchanged), run 1 of 3 with the bench to itself, started after the board cooled. Start:
+2026-10-20T13:53:30Z temp=62.6'C throttled=0xe0000 arm_clock_hz=1500019456 gov=ondemand load=0.16 0.47 0.76.
+End: 2026-10-20T13:58:24Z temp=83.4'C throttled=0xe0008 arm_clock_hz=2256019456 gov=ondemand load=1.15 0.89
+0.87.
+
+The NAMBench method as in bench.md (see THIRD_PARTY_NOTICES.md), with passes of 2 s of audio and 6
+passes for the block percentile. core_percent is the share of one core; p99 and max are one block's
+time as a percent of its own deadline (above 100% a callback was late).
+
+| engine | taps | size | core_percent | block p99 | block max | spread | attempts |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| old: partition 64 | 4096 | 32 | 0.670% | 1.264% | 2.586% | 0.06% | 1 |
+| old: partition 64 | 4096 | 128 | 0.670% | 0.681% | 1.744% | 0.12% | 1 |
+| auto (long plan above 16384) | 4096 | 32 | 0.670% | 1.267% | 14.531% | 0.30% | 1 |
+| auto (long plan above 16384) | 4096 | 128 | 0.670% | 0.740% | 1.767% | 0.12% | 1 |
+| old: partition 64 | 16384 | 32 | 1.699% | 3.542% | 8.211% | 0.14% | 1 |
+| old: partition 64 | 16384 | 128 | 1.696% | 1.766% | 2.547% | 0.05% | 1 |
+| auto (long plan above 16384) | 16384 | 32 | 1.700% | 3.350% | 17.206% | 0.51% | 1 |
+| auto (long plan above 16384) | 16384 | 128 | 1.697% | 2.126% | 3.693% | 0.08% | 1 |
+| old: partition 64 | 48000 | 32 | 4.269% | 8.575% | 22.550% | 0.29% | 1 |
+| old: partition 64 | 48000 | 128 | 4.266% | 4.384% | 5.193% | 0.40% | 1 |
+| auto (long plan above 16384) | 48000 | 32 | 1.450% | 5.631% | 8.339% | 0.08% | 1 |
+| auto (long plan above 16384) | 48000 | 128 | 1.443% | 3.190% | 3.299% | 0.90% | 1 |
+| old: partition 64 | 240000 | 32 | 21.335% | 58.534% | 82.634% | 1.98% | 1 |
+| old: partition 64 | 240000 | 128 | 25.763% | 33.241% | 40.607% | 2.10% | 4 |
+| auto (long plan above 16384) | 240000 | 32 | no run agreed within 3% in 5 attempts | | | | |
+| auto (long plan above 16384) | 240000 | 128 | 1.920% | 5.719% | 6.679% | 2.83% | 4 |
+
+================================================================================
+FILE: results/bench-long-r1-x86.md    [Optional: squatch-dsp cabinet benchmark, long responses]
+================================================================================
+
+<!-- SPDX-License-Identifier: MIT -->
+# squatch-dsp cabinet benchmark, long responses
+
+x86_64, g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0,
+`-O3 -fno-exceptions -fno-rtti`. `make bench-long` writes this file.
+
+Conditions (added by hand from the run's own log; the long table did not print them when it ran): AMD Ryzen 9
+9950X, Ubuntu 24.04, kernel 7.2.6-76070206-generic, g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0, flags
+`-std=c++17 -fno-exceptions -fno-rtti -Wall -Wextra -Wpedantic -Wshadow -Werror -Iinclude
+-Iblocks/tuner/include -O3`, governor powersave (balance_performance EPP, unchanged), run 1 of 3, unpinned, on
+a shared x86 server. Start: 2026-10-20T13:23:04Z gov=powersave load=7.09 4.19 2.87 gpu=100 %, 24494 MiB
+top=python3:110.0% python3:80.0% systemd:0.0% . End: 2026-10-20T13:24:02Z gov=powersave load=4.61 4.00 2.90
+gpu=100 %, 24514 MiB top=python3:83.3% python3:50.0% systemd:0.0% .
+
+The NAMBench method as in bench.md (see THIRD_PARTY_NOTICES.md), with passes of 2 s of audio and 6
+passes for the block percentile. core_percent is the share of one core; p99 and max are one block's
+time as a percent of its own deadline (above 100% a callback was late).
+
+| engine | taps | size | core_percent | block p99 | block max | spread | attempts |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| old: partition 64 | 4096 | 32 | 0.193% | 0.354% | 1.199% | 0.38% | 1 |
+| old: partition 64 | 4096 | 128 | 0.193% | 0.218% | 0.326% | 0.34% | 1 |
+| auto (long plan above 16384) | 4096 | 32 | 0.193% | 0.354% | 1.241% | 0.21% | 1 |
+| auto (long plan above 16384) | 4096 | 128 | 0.193% | 0.208% | 0.361% | 0.38% | 1 |
+| old: partition 64 | 16384 | 32 | 0.465% | 0.907% | 1.860% | 0.28% | 1 |
+| old: partition 64 | 16384 | 128 | 0.465% | 0.529% | 0.651% | 0.27% | 1 |
+| auto (long plan above 16384) | 16384 | 32 | 0.465% | 0.905% | 1.479% | 0.32% | 1 |
+| auto (long plan above 16384) | 16384 | 128 | 0.465% | 0.514% | 0.659% | 0.27% | 1 |
+| old: partition 64 | 48000 | 32 | 1.169% | 2.433% | 5.654% | 0.38% | 1 |
+| old: partition 64 | 48000 | 128 | 1.168% | 1.236% | 1.653% | 0.34% | 1 |
+| auto (long plan above 16384) | 48000 | 32 | 0.373% | 1.385% | 2.267% | 0.19% | 1 |
+| auto (long plan above 16384) | 48000 | 128 | 0.371% | 0.949% | 1.413% | 0.41% | 1 |
+| old: partition 64 | 240000 | 32 | 5.790% | 12.299% | 23.562% | 0.17% | 1 |
+| old: partition 64 | 240000 | 128 | 5.792% | 6.025% | 6.283% | 0.10% | 1 |
+| auto (long plan above 16384) | 240000 | 32 | 0.445% | 1.701% | 3.282% | 0.79% | 1 |
+| auto (long plan above 16384) | 240000 | 128 | 0.442% | 1.479% | 1.608% | 0.36% | 1 |
+
+================================================================================
+FILE: results/bench-long-r2-pi5.md    [Optional: squatch-dsp cabinet benchmark, long responses]
+================================================================================
+
+<!-- SPDX-License-Identifier: MIT -->
+# squatch-dsp cabinet benchmark, long responses
+
+aarch64, g++ (Debian 14.2.0-19) 14.2.0,
+`-O3 -fno-exceptions -fno-rtti`. `make bench-long` writes this file.
+
+Conditions (added by hand from the run's own log; the long table did not print them when it ran): Raspberry Pi
+5 Model B Rev 1.0, kernel 6.18.50+rpt-rpi-2712, g++ (Debian 14.2.0-19) 14.2.0, flags `-std=c++17
+-fno-exceptions -fno-rtti -Wall -Wextra -Wpedantic -Wshadow -Werror -Iinclude -Iblocks/tuner/include -O3`,
+governor ondemand (unchanged), run 2 of 3 with the bench to itself, started after the board cooled. Start:
+2026-10-20T14:14:18Z temp=62.6'C throttled=0xe0000 arm_clock_hz=1500016128 gov=ondemand load=0.14 0.52 0.63.
+End: 2026-10-20T14:20:15Z temp=83.4'C throttled=0xe0008 arm_clock_hz=2311027968 gov=ondemand load=1.01 0.89
+0.77.
+
+The NAMBench method as in bench.md (see THIRD_PARTY_NOTICES.md), with passes of 2 s of audio and 6
+passes for the block percentile. core_percent is the share of one core; p99 and max are one block's
+time as a percent of its own deadline (above 100% a callback was late).
+
+| engine | taps | size | core_percent | block p99 | block max | spread | attempts |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| old: partition 64 | 4096 | 32 | 0.669% | 1.261% | 1.697% | 0.17% | 1 |
+| old: partition 64 | 4096 | 128 | 0.668% | 0.758% | 3.843% | 0.17% | 1 |
+| auto (long plan above 16384) | 4096 | 32 | 0.669% | 1.264% | 1.694% | 0.16% | 1 |
+| auto (long plan above 16384) | 4096 | 128 | 0.669% | 0.799% | 2.273% | 0.11% | 1 |
+| old: partition 64 | 16384 | 32 | 1.699% | 3.347% | 4.636% | 0.09% | 1 |
+| old: partition 64 | 16384 | 128 | 1.697% | 1.759% | 2.037% | 0.11% | 1 |
+| auto (long plan above 16384) | 16384 | 32 | 1.698% | 3.350% | 15.600% | 0.07% | 1 |
+| auto (long plan above 16384) | 16384 | 128 | 1.697% | 1.761% | 2.540% | 0.05% | 1 |
+| old: partition 64 | 48000 | 32 | 4.264% | 8.572% | 12.711% | 0.14% | 1 |
+| old: partition 64 | 48000 | 128 | 4.261% | 4.372% | 5.047% | 0.04% | 1 |
+| auto (long plan above 16384) | 48000 | 32 | 1.449% | 5.650% | 8.322% | 0.41% | 1 |
+| auto (long plan above 16384) | 48000 | 128 | 1.440% | 3.191% | 3.285% | 0.05% | 1 |
+| old: partition 64 | 240000 | 32 | 25.037% | 67.687% | 81.412% | 2.23% | 5 |
+| old: partition 64 | 240000 | 128 | 25.549% | 36.651% | 49.058% | 2.28% | 2 |
+| auto (long plan above 16384) | 240000 | 32 | 1.962% | 8.042% | 11.472% | 1.44% | 2 |
+| auto (long plan above 16384) | 240000 | 128 | 1.956% | 6.110% | 8.892% | 2.20% | 1 |
+
+================================================================================
+FILE: results/bench-long-r2-x86.md    [Optional: squatch-dsp cabinet benchmark, long responses]
+================================================================================
+
+<!-- SPDX-License-Identifier: MIT -->
+# squatch-dsp cabinet benchmark, long responses
+
+x86_64, g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0,
+`-O3 -fno-exceptions -fno-rtti`. `make bench-long` writes this file.
+
+Conditions (added by hand from the run's own log; the long table did not print them when it ran): AMD Ryzen 9
+9950X, Ubuntu 24.04, kernel 7.2.6-76070206-generic, g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0, flags
+`-std=c++17 -fno-exceptions -fno-rtti -Wall -Wextra -Wpedantic -Wshadow -Werror -Iinclude
+-Iblocks/tuner/include -O3`, governor powersave (balance_performance EPP, unchanged), run 2 of 3, unpinned, on
+a shared x86 server. Start: 2026-10-20T13:28:29Z gov=powersave load=3.11 3.49 2.97 gpu=100 %, 24276 MiB
+top=python3:100.0% python3:70.0% systemd:0.0% . End: 2026-10-20T13:29:26Z gov=powersave load=3.32 3.47 3.00
+gpu=100 %, 24276 MiB top=python3:100.0% top:9.1% systemd:0.0% .
+
+The NAMBench method as in bench.md (see THIRD_PARTY_NOTICES.md), with passes of 2 s of audio and 6
+passes for the block percentile. core_percent is the share of one core; p99 and max are one block's
+time as a percent of its own deadline (above 100% a callback was late).
+
+| engine | taps | size | core_percent | block p99 | block max | spread | attempts |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| old: partition 64 | 4096 | 32 | 0.192% | 0.354% | 1.411% | 0.31% | 1 |
+| old: partition 64 | 4096 | 128 | 0.192% | 0.205% | 0.412% | 0.35% | 1 |
+| auto (long plan above 16384) | 4096 | 32 | 0.192% | 0.351% | 2.127% | 0.30% | 1 |
+| auto (long plan above 16384) | 4096 | 128 | 0.192% | 0.205% | 0.264% | 0.21% | 1 |
+| old: partition 64 | 16384 | 32 | 0.465% | 0.905% | 3.587% | 0.36% | 1 |
+| old: partition 64 | 16384 | 128 | 0.464% | 0.549% | 0.676% | 0.33% | 1 |
+| auto (long plan above 16384) | 16384 | 32 | 0.466% | 0.905% | 2.910% | 0.62% | 1 |
+| auto (long plan above 16384) | 16384 | 128 | 0.464% | 0.510% | 1.390% | 0.38% | 1 |
+| old: partition 64 | 48000 | 32 | 1.171% | 2.367% | 3.798% | 0.49% | 1 |
+| old: partition 64 | 48000 | 128 | 1.174% | 1.257% | 1.536% | 0.28% | 1 |
+| auto (long plan above 16384) | 48000 | 32 | 0.370% | 1.421% | 3.209% | 0.49% | 1 |
+| auto (long plan above 16384) | 48000 | 128 | 0.366% | 1.043% | 1.726% | 0.69% | 1 |
+| old: partition 64 | 240000 | 32 | 5.811% | 12.009% | 13.817% | 0.24% | 1 |
+| old: partition 64 | 240000 | 128 | 5.807% | 5.904% | 6.498% | 0.09% | 1 |
+| auto (long plan above 16384) | 240000 | 32 | 0.436% | 1.682% | 3.174% | 0.16% | 1 |
+| auto (long plan above 16384) | 240000 | 128 | 0.433% | 1.454% | 1.536% | 0.20% | 1 |
+
+================================================================================
+FILE: results/bench-long-r3-pi5.md    [Optional: squatch-dsp cabinet benchmark, long responses]
+================================================================================
+
+<!-- SPDX-License-Identifier: MIT -->
+# squatch-dsp cabinet benchmark, long responses
+
+aarch64, g++ (Debian 14.2.0-19) 14.2.0,
+`-O3 -fno-exceptions -fno-rtti`. `make bench-long` writes this file.
+
+Conditions (added by hand from the run's own log; the long table did not print them when it ran): Raspberry Pi
+5 Model B Rev 1.0, kernel 6.18.50+rpt-rpi-2712, g++ (Debian 14.2.0-19) 14.2.0, flags `-std=c++17
+-fno-exceptions -fno-rtti -Wall -Wextra -Wpedantic -Wshadow -Werror -Iinclude -Iblocks/tuner/include -O3`,
+governor ondemand (unchanged), run 3 of 3 with the bench to itself, started after the board cooled. Start:
+2026-10-20T14:59:55Z temp=62.6'C throttled=0xe0000 arm_clock_hz=1500022656 gov=ondemand load=0.17 0.61 0.71.
+End: 2026-10-20T15:03:01Z temp=83.4'C throttled=0xe0008 arm_clock_hz=2256022784 gov=ondemand load=0.98 0.81
+0.78.
+
+The NAMBench method as in bench.md (see THIRD_PARTY_NOTICES.md), with passes of 2 s of audio and 6
+passes for the block percentile. core_percent is the share of one core; p99 and max are one block's
+time as a percent of its own deadline (above 100% a callback was late).
+
+| engine | taps | size | core_percent | block p99 | block max | spread | attempts |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| old: partition 64 | 4096 | 32 | 0.671% | 1.267% | 2.347% | 0.16% | 1 |
+| old: partition 64 | 4096 | 128 | 0.670% | 0.678% | 0.985% | 0.13% | 1 |
+| auto (long plan above 16384) | 4096 | 32 | 0.671% | 1.269% | 1.803% | 0.13% | 1 |
+| auto (long plan above 16384) | 4096 | 128 | 0.670% | 0.678% | 0.784% | 0.14% | 1 |
+| old: partition 64 | 16384 | 32 | 1.698% | 3.345% | 4.003% | 0.06% | 1 |
+| old: partition 64 | 16384 | 128 | 1.697% | 1.764% | 2.139% | 0.03% | 1 |
+| auto (long plan above 16384) | 16384 | 32 | 1.698% | 3.347% | 5.336% | 0.06% | 1 |
+| auto (long plan above 16384) | 16384 | 128 | 1.697% | 1.765% | 1.870% | 0.06% | 1 |
+| old: partition 64 | 48000 | 32 | 4.293% | 8.670% | 10.858% | 0.03% | 1 |
+| old: partition 64 | 48000 | 128 | 4.296% | 4.408% | 4.888% | 0.05% | 1 |
+| auto (long plan above 16384) | 48000 | 32 | 1.460% | 5.625% | 8.870% | 0.05% | 1 |
+| auto (long plan above 16384) | 48000 | 128 | 1.451% | 3.194% | 3.315% | 0.05% | 1 |
+| old: partition 64 | 240000 | 32 | 21.321% | 52.126% | 74.567% | 1.31% | 1 |
+| old: partition 64 | 240000 | 128 | 23.674% | 34.061% | 38.589% | 2.72% | 2 |
+| auto (long plan above 16384) | 240000 | 32 | 1.896% | 7.683% | 11.995% | 2.39% | 2 |
+| auto (long plan above 16384) | 240000 | 128 | 1.868% | 5.588% | 5.988% | 1.69% | 2 |
+
+================================================================================
+FILE: results/bench-long-r3-x86.md    [Optional: squatch-dsp cabinet benchmark, long responses]
+================================================================================
+
+<!-- SPDX-License-Identifier: MIT -->
+# squatch-dsp cabinet benchmark, long responses
+
+x86_64, g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0,
+`-O3 -fno-exceptions -fno-rtti`. `make bench-long` writes this file.
+
+Conditions (added by hand from the run's own log; the long table did not print them when it ran): AMD Ryzen 9
+9950X, Ubuntu 24.04, kernel 7.2.6-76070206-generic, g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0, flags
+`-std=c++17 -fno-exceptions -fno-rtti -Wall -Wextra -Wpedantic -Wshadow -Werror -Iinclude
+-Iblocks/tuner/include -O3`, governor powersave (balance_performance EPP, unchanged), run 3 of 3, unpinned, on
+a shared x86 server. Start: 2026-10-20T15:08:29Z gov=powersave load=3.44 2.64 2.30 gpu=100 %, 15074 MiB
+top=python:100.0% python3:45.5% kworker+:9.1% . End: 2026-10-20T15:09:35Z gov=powersave load=3.19 2.74 2.36
+gpu=0 %, 2 MiB top=grep:16.7% kswapd0:8.3% kworker+:8.3% .
+
+The NAMBench method as in bench.md (see THIRD_PARTY_NOTICES.md), with passes of 2 s of audio and 6
+passes for the block percentile. core_percent is the share of one core; p99 and max are one block's
+time as a percent of its own deadline (above 100% a callback was late).
+
+| engine | taps | size | core_percent | block p99 | block max | spread | attempts |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| old: partition 64 | 4096 | 32 | 0.191% | 0.350% | 1.559% | 0.24% | 1 |
+| old: partition 64 | 4096 | 128 | 0.190% | 0.222% | 0.791% | 0.19% | 1 |
+| auto (long plan above 16384) | 4096 | 32 | 0.191% | 0.351% | 1.110% | 0.37% | 1 |
+| auto (long plan above 16384) | 4096 | 128 | 0.190% | 0.206% | 0.469% | 0.33% | 1 |
+| old: partition 64 | 16384 | 32 | 0.459% | 0.896% | 1.823% | 0.15% | 1 |
+| old: partition 64 | 16384 | 128 | 0.458% | 0.507% | 0.729% | 0.14% | 1 |
+| auto (long plan above 16384) | 16384 | 32 | 0.459% | 0.894% | 4.452% | 0.43% | 1 |
+| auto (long plan above 16384) | 16384 | 128 | 0.457% | 0.542% | 1.165% | 0.64% | 1 |
+| old: partition 64 | 48000 | 32 | 1.159% | 2.397% | 7.434% | 0.98% | 1 |
+| old: partition 64 | 48000 | 128 | 1.156% | 1.256% | 1.586% | 0.31% | 1 |
+| auto (long plan above 16384) | 48000 | 32 | 0.361% | 1.356% | 2.264% | 0.41% | 1 |
+| auto (long plan above 16384) | 48000 | 128 | 0.359% | 0.935% | 1.037% | 0.45% | 1 |
+| old: partition 64 | 240000 | 32 | 5.725% | 12.248% | 19.271% | 0.53% | 1 |
+| old: partition 64 | 240000 | 128 | 5.739% | 6.296% | 11.580% | 0.57% | 2 |
+| auto (long plan above 16384) | 240000 | 32 | 0.433% | 1.688% | 3.384% | 0.24% | 1 |
+| auto (long plan above 16384) | 240000 | 128 | 0.431% | 1.441% | 1.942% | 0.59% | 1 |
+
+================================================================================
 FILE: results/bench-mac.md    [Optional: squatch-dsp CPU benchmark]
 ================================================================================
 
 <!-- SPDX-License-Identifier: MIT -->
 # squatch-dsp CPU benchmark
 
-Apple M1 Max, Apple clang version 21.0.0 (clang-2100.3.34.2), `-O3 -fno-exceptions -fno-rtti`, 2026-09-26.
+Apple M1 Max, Apple clang version 21.0.0 (clang-2100.3.34.2), `-O3 -fno-exceptions -fno-rtti`, 2026-10-20.
 `make bench` writes this file.
 
 Nanoseconds per sample at 48 kHz, by block size (best of 7 runs of 10 s of audio, one core).
@@ -3056,17 +3354,51 @@ At 48 kHz one core has 20833 ns per sample; the last column is that share at 128
 
 | block | 16 | 32 | 64 | 128 | % of a core |
 |---|---:|---:|---:|---:|---:|
-| limiter (limiting) | 69.58 | 69.05 | 68.94 | 68.48 | 0.33% |
-| gate (open) | 4.75 | 4.74 | 4.75 | 4.74 | 0.02% |
-| eq (3 bands) | 6.30 | 8.23 | 10.62 | 11.86 | 0.06% |
-| gate + eq + limiter | 90.76 | 85.79 | 87.69 | 87.77 | 0.42% |
-| tuner (tracking 110 Hz) | 134.99 | 134.31 | 134.53 | 134.84 | 0.65% |
-| cabinet (200 ms response, partition 64) | 80.19 | 80.32 | 79.76 | 80.10 | 0.39% |
-| comp (4:1) | 9.88 | 9.91 | 9.77 | 9.81 | 0.05% |
-| trail od (4x oversampled) | 15.80 | 15.57 | 15.48 | 15.34 | 0.07% |
-| crunch (high-gain preamp, 4x oversampled) | 153.75 | 152.11 | 152.35 | 152.99 | 0.73% |
-| claw (op-amp distortion circuit model, 4x oversampled) | 243.49 | 242.44 | 242.51 | 242.54 | 1.17% |
-| hall (FDN reverb, 8 lines) | 13.39 | 13.40 | 13.25 | 13.11 | 0.06% |
+| limiter (limiting) | 87.18 | 86.41 | 86.49 | 86.78 | 0.41% |
+| gate (open) | 7.26 | 7.19 | 7.10 | 7.05 | 0.03% |
+| eq (3 bands) | 6.32 | 8.43 | 10.85 | 11.93 | 0.06% |
+| gate + eq + limiter | 88.33 | 87.98 | 90.05 | 91.80 | 0.44% |
+| tuner (tracking 110 Hz) | 136.63 | 136.47 | 136.79 | 136.34 | 0.66% |
+| cabinet (200 ms response, partition 64) | 92.35 | 92.19 | 91.74 | 91.62 | 0.44% |
+| comp (4:1) | 10.04 | 9.88 | 9.88 | 9.95 | 0.05% |
+| trail od (4x oversampled) | 194.75 | 193.02 | 191.77 | 192.60 | 0.92% |
+| crunch (high-gain preamp, 4x oversampled) | 156.42 | 157.66 | 156.77 | 157.38 | 0.75% |
+| claw (op-amp distortion circuit model, 4x oversampled) | 251.88 | 250.68 | 250.86 | 250.96 | 1.20% |
+| hall (FDN reverb, 8 lines) | 14.33 | 13.99 | 13.82 | 13.66 | 0.07% |
+
+Same blocks, measured with the NAMBench method (pedal-science_NAMBench, MIT;
+see THIRD_PARTY_NOTICES.md). A pass is 10 s of audio, repeated until it lasts 20 ms.
+The kept passes are the tightest 70% of those timed in 1 s; their spread must be within 3%,
+else the attempt is voided and rerun. core_percent = mean pass time / audio time.
+p99 and max are one block's time as a percent of its own deadline (block size / 48 kHz)
+over 20 passes; above 100% a callback missed its deadline.
+
+| block | size | core_percent | block p99 | block max | spread | attempts |
+|---|---:|---:|---:|---:|---:|---:|
+| limiter (limiting) | 16 | 0.420% | 0.487% | 40.288% | 2.83% | 1 |
+| limiter (limiting) | 32 | 0.420% | 0.475% | 225.619% | 1.60% | 1 |
+| limiter (limiting) | 64 | 0.419% | 0.472% | 31.116% | 2.14% | 1 |
+| limiter (limiting) | 128 | 0.419% | 0.620% | 9.872% | 1.24% | 1 |
+| gate (open) | 16 | 0.036% | 0.037% | 83.900% | 1.43% | 1 |
+| gate (open) | 32 | 0.035% | 0.037% | 6.562% | 1.71% | 1 |
+| gate (open) | 64 | 0.035% | 0.037% | 4.000% | 2.65% | 1 |
+| gate (open) | 128 | 0.035% | 0.036% | 2.892% | 1.91% | 1 |
+| eq (3 bands) | 16 | 0.031% | 0.088% | 38.875% | 1.74% | 1 |
+| eq (3 bands) | 32 | 0.041% | 0.050% | 15.663% | 2.45% | 1 |
+| eq (3 bands) | 64 | 0.053% | 0.056% | 7.431% | 2.71% | 2 |
+| eq (3 bands) | 128 | 0.059% | 0.063% | 7.828% | 2.12% | 1 |
+| gate + eq + limiter | 16 | 0.427% | 0.513% | 65.912% | 1.32% | 1 |
+| gate + eq + limiter | 32 | 0.422% | 0.481% | 267.562% | 1.39% | 1 |
+| gate + eq + limiter | 64 | 0.433% | 0.491% | 18.062% | 1.79% | 1 |
+| gate + eq + limiter | 128 | 0.442% | 0.553% | 8.534% | 1.39% | 1 |
+| tuner (tracking 110 Hz) | 16 | 0.671% | 32.375% | 165.025% | 1.44% | 1 |
+| tuner (tracking 110 Hz) | 32 | 0.668% | 16.862% | 155.419% | 0.98% | 1 |
+| tuner (tracking 110 Hz) | 64 | 0.668% | 8.550% | 33.053% | 1.29% | 1 |
+| tuner (tracking 110 Hz) | 128 | 0.666% | 4.538% | 14.492% | 1.27% | 1 |
+| cabinet (200 ms response, partition 64) | 16 | 0.448% | 1.500% | 142.200% | 1.62% | 1 |
+| cabinet (200 ms response, partition 64) | 32 | 0.445% | 0.838% | 38.475% | 1.43% | 1 |
+| cabinet (200 ms response, partition 64) | 64 | 0.442% | 0.553% | 77.869% | 2.11% | 1 |
+| cabinet (200 ms response, partition 64) | 128 | 0.444% | 0.675% | 11.506% | 1.39% | 1 |
 
 ================================================================================
 FILE: bench/    [Optional: bench/]
@@ -3075,6 +3407,7 @@ FILE: bench/    [Optional: bench/]
 Directory listing (tracked files):
 
 - bench/bench.cpp
+- bench/protocol.hpp
 
 ================================================================================
 FILE: blocks/    [Optional: blocks/]
@@ -3453,6 +3786,7 @@ Directory listing (tracked files):
 - tests/runner.cpp
 - tests/signals.hpp
 - tests/test_amp_fx.cpp
+- tests/test_bench_protocol.cpp
 - tests/test_bypass.cpp
 - tests/test_cabinet.cpp
 - tests/test_claw.cpp
