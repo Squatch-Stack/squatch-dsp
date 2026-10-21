@@ -335,7 +335,7 @@ Source repositories (links pinned to the commit adapted from):
 |---|---|
 | `include/squatch/dsp/crossfade.hpp`, `src/crossfade.cpp`, the cases in `tests/test_crossfade.cpp` (the correlation is a running estimate here, not the first block's: ours) | [crossfade.h](https://github.com/pedal-science/namchain/blob/e208bb869069b15a7331b452e03b7dc88726ffee/include/namchain/rt/crossfade.h), [crossfade.cpp](https://github.com/pedal-science/namchain/blob/e208bb869069b15a7331b452e03b7dc88726ffee/src/rt/crossfade.cpp), [test_crossfade.cpp](https://github.com/pedal-science/namchain/blob/e208bb869069b15a7331b452e03b7dc88726ffee/tests/test_crossfade.cpp) |
 | `tests/glitch.hpp`, `tests/test_glitch.cpp`; applied in `tests/test_bypass.cpp`, `tests/test_model_swap.cpp`, `tests/test_cabinet.cpp`, `tests/test_tuner.cpp` | [glitch.h](https://github.com/pedal-science/namchain/blob/e208bb869069b15a7331b452e03b7dc88726ffee/include/namchain/glitch.h), [glitch.cpp](https://github.com/pedal-science/namchain/blob/e208bb869069b15a7331b452e03b7dc88726ffee/src/glitch/glitch.cpp), [test_glitch.cpp](https://github.com/pedal-science/namchain/blob/e208bb869069b15a7331b452e03b7dc88726ffee/tests/test_glitch.cpp) (the four rules and their defaults; rewritten, not copied) |
-| `include/squatch/dsp/blocks/model_swap.hpp`, `src/model_swap.cpp`, `include/squatch/dsp/blocks/bypass.hpp` and `src/bypass.cpp` (the warm-up before a fade), the cases in `tests/test_model_swap.cpp` | [transitions.md](https://github.com/pedal-science/namchain/blob/e208bb869069b15a7331b452e03b7dc88726ffee/docs/transitions.md), [lookback.h](https://github.com/pedal-science/namchain/blob/e208bb869069b15a7331b452e03b7dc88726ffee/include/namchain/lookback.h), [crossfade.h](https://github.com/pedal-science/namchain/blob/e208bb869069b15a7331b452e03b7dc88726ffee/include/namchain/rt/crossfade.h) (the plan: warm over the lookback, then crossfade; no code copied) |
+| `include/squatch/dsp/blocks/model_swap.hpp`, `src/model_swap.cpp`, `include/squatch/dsp/blocks/bypass.hpp` and `src/bypass.cpp` (the warm-up before a fade), the cases in `tests/test_model_swap.cpp`; the hosts that use the swap: `hosts/jack/nam_amp.hpp`, `hosts/common/cab_swap.hpp`, and `hosts/tests/test_nam_swap.cpp` | [transitions.md](https://github.com/pedal-science/namchain/blob/e208bb869069b15a7331b452e03b7dc88726ffee/docs/transitions.md), [lookback.h](https://github.com/pedal-science/namchain/blob/e208bb869069b15a7331b452e03b7dc88726ffee/include/namchain/lookback.h), [crossfade.h](https://github.com/pedal-science/namchain/blob/e208bb869069b15a7331b452e03b7dc88726ffee/include/namchain/rt/crossfade.h) (the plan: warm over the lookback, then crossfade; no code copied) |
 | `include/squatch/dsp/tail_convolver.hpp`, `src/tail_convolver.cpp`, the long plan in `src/cabinet.cpp`, the stepped transform in `src/fft.cpp` | [linear.cpp](https://github.com/rikkus/OptimisationWorkOnNeuralAmpModelerCore/blob/010a0e53bee7ea8867d8c65917e5bdea3babf60f/NAM/linear.cpp), [linear.h](https://github.com/rikkus/OptimisationWorkOnNeuralAmpModelerCore/blob/010a0e53bee7ea8867d8c65917e5bdea3babf60f/NAM/linear.h), [linear.rst](https://github.com/rikkus/OptimisationWorkOnNeuralAmpModelerCore/blob/010a0e53bee7ea8867d8c65917e5bdea3babf60f/docs/linear.rst) (the partition table and the tail tier's scheduling; algorithm only, no code copied) |
 | `bench/protocol.hpp`, the second table of `bench/bench.cpp`, `tests/test_bench_protocol.cpp` | [nb_protocol.h](https://github.com/pedal-science/NAMBench/blob/0a5ef0086852294f8450606e78c44760e1055e35/Tools/nb_protocol.h), [nam_ir_benchmark.cpp](https://github.com/pedal-science/NAMBench/blob/0a5ef0086852294f8450606e78c44760e1055e35/Tools/nam_ir_benchmark.cpp) |
 
@@ -2596,6 +2596,40 @@ $(BUILD)/test_probe: hosts/tests/test_probe.cpp src/tuner.cpp $(PROBE_HEADERS) $
 $(BUILD)/test_rig: hosts/tests/test_rig.cpp hosts/common/ir_file.hpp hosts/jack/rig_options.hpp hosts/jack/rig_stages.hpp | $(BUILD)
 	$(CXX) $(HOST) -O1 -g -fsanitize=address,undefined -fno-sanitize-recover=all -o $@ $<
 
+# CabSwap (hosts/common/cab_swap.hpp) keeps its own copy of the impulse response it is given: the test frees
+# the caller's buffer first, so ASan flags a read of it. Exceptions on (a host), the library sources built in.
+$(BUILD)/test_cab_swap_owns_taps: hosts/tests/test_cab_swap_owns_taps.cpp hosts/common/cab_swap.hpp $(HEADERS) $(SRC) tests/runner.cpp | $(BUILD)
+	$(CXX) $(HOST) -O1 -g -fno-omit-frame-pointer -fsanitize=address,undefined -fno-sanitize-recover=all -Wno-unused-parameter \
+	  -o $@ hosts/tests/test_cab_swap_owns_taps.cpp tests/runner.cpp $(SRC)
+
+# NamAmp's live model swap against real models. NAM Core is optional and never part of the library, so these
+# are not part of `make test`: name a checkout with NAM_CORE=DIR (its example_models are the models).
+# ASan for the malloc hooks the real-time watch uses.
+.PHONY: test-nam test-nam-tsan
+test-nam: $(BUILD)/test_nam_swap
+	./$(BUILD)/test_nam_swap
+
+$(BUILD)/test_nam_swap: hosts/tests/test_nam_swap.cpp hosts/jack/nam_amp.hpp $(HEADERS) tests/glitch.hpp tests/rt_watch.cpp tests/runner.cpp \
+                        $(SRC) $(NAM_OBJ) $(LOCKS) | $(BUILD)
+	@test -n '$(NAM_CORE)' || { echo 'test-nam: name a NAM Core checkout with NAM_CORE=DIR'; exit 2; }
+	$(CXX) -std=c++17 -O1 -g -fsanitize=address $(WARN) -Wno-unused-parameter -Iinclude -Iblocks/tuner/include $(RIG_NAM) \
+	  -DNAM_MODELS_DIR='"$(NAM_CORE)/example_models"' $(TEST_DEFS) -o $@ hosts/tests/test_nam_swap.cpp tests/rt_watch.cpp \
+	  tests/runner.cpp $(SRC) $(NAM_OBJ) $(LOCK_LINK)
+
+# The same file under ThreadSanitizer, NAM Core built with it as well, running only the thread stress.
+$(BUILD)/namtsan/%.o: $(NAM_CORE)/NAM/%.cpp
+	@mkdir -p $(@D)
+	$(CXX) $(NAM_FLAGS) -O1 -g -fsanitize=thread -c -o $@ $<
+
+NAM_TSAN_OBJ := $(patsubst $(NAM_CORE)/NAM/%.cpp,$(BUILD)/namtsan/%.o,$(NAM_SRC))
+
+test-nam-tsan: $(NAM_TSAN_OBJ) hosts/tests/test_nam_swap.cpp hosts/jack/nam_amp.hpp $(HEADERS) $(SRC) tests/glitch.hpp tests/rt_watch.cpp tests/runner.cpp | $(BUILD)
+	@test -n '$(NAM_CORE)' || { echo 'test-nam-tsan: name a NAM Core checkout with NAM_CORE=DIR'; exit 2; }
+	$(CXX) -std=c++17 -O1 -g -fsanitize=thread $(WARN) -Wno-unused-parameter -Iinclude -Iblocks/tuner/include $(RIG_NAM) \
+	  -DNAM_MODELS_DIR='"$(NAM_CORE)/example_models"' $(TEST_DEFS) -o $(BUILD)/test_nam_swap_tsan hosts/tests/test_nam_swap.cpp \
+	  tests/rt_watch.cpp tests/runner.cpp $(SRC) $(NAM_TSAN_OBJ) $(LOCK_LINK)
+	./$(BUILD)/test_nam_swap_tsan namSwapUnderAControlThreadStress
+
 # The browser demo (hosts/wasm): the tuner as WebAssembly in an AudioWorklet, a static folder
 # for any HTTPS host. Needs Emscripten on PATH (source <emsdk>/emsdk_env.sh); not part of `all`.
 # wasm-test scores the module in Node, then the page in headless Chrome against test tones.
@@ -2636,12 +2670,13 @@ $(BUILD)/bench_%: bench/bench_%.cpp $(BUILD)/libsquatch-dsp.a $(HEADERS) | $(BUI
 $(BUILD) $(BUILD)/obj:
 	mkdir -p $@
 
-test: $(BUILD)/tests $(BUILD)/test_queue_threads $(BUILD)/test_hosts $(BUILD)/test_host_audio $(BUILD)/test_rig $(if $(DAISY),$(BUILD)/test_daisy) $(if $(PROBE),$(BUILD)/test_probe)
+test: $(BUILD)/tests $(BUILD)/test_queue_threads $(BUILD)/test_hosts $(BUILD)/test_host_audio $(BUILD)/test_rig $(BUILD)/test_cab_swap_owns_taps $(if $(DAISY),$(BUILD)/test_daisy) $(if $(PROBE),$(BUILD)/test_probe)
 	./$(BUILD)/tests
 	./$(BUILD)/test_queue_threads
 	./$(BUILD)/test_hosts
 	./$(BUILD)/test_host_audio
 	./$(BUILD)/test_rig
+	./$(BUILD)/test_cab_swap_owns_taps
 	$(if $(PROBE),./$(BUILD)/test_probe)
 	$(if $(DAISY),./$(BUILD)/test_daisy)
 	$(if $(DAISY),python3 hosts/daisy/tests/test_tools.py)
@@ -3553,6 +3588,7 @@ Directory listing (tracked files):
 - hosts/clap/tests/reaper-smoke.lua
 - hosts/clap/tests/wav.hpp
 - hosts/clap/traits.hpp
+- hosts/common/cab_swap.hpp
 - hosts/common/display.hpp
 - hosts/common/hold.hpp
 - hosts/common/host_clock.hpp
@@ -3638,8 +3674,10 @@ Directory listing (tracked files):
 - hosts/render/rig_render.cpp
 - hosts/render/tuner_csv.cpp
 - hosts/render/tuner_csv_diff.py
+- hosts/tests/test_cab_swap_owns_taps.cpp
 - hosts/tests/test_host_audio.cpp
 - hosts/tests/test_hosts.cpp
+- hosts/tests/test_nam_swap.cpp
 - hosts/tests/test_rig.cpp
 - hosts/wasm/build.py
 - hosts/wasm/demo.css

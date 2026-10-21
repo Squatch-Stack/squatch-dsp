@@ -210,6 +210,34 @@ $(BUILD)/test_cab_swap_owns_taps: hosts/tests/test_cab_swap_owns_taps.cpp hosts/
 	$(CXX) $(HOST) -O1 -g -fno-omit-frame-pointer -fsanitize=address,undefined -fno-sanitize-recover=all -Wno-unused-parameter \
 	  -o $@ hosts/tests/test_cab_swap_owns_taps.cpp tests/runner.cpp $(SRC)
 
+# NamAmp's live model swap against real models. NAM Core is optional and never part of the library, so these
+# are not part of `make test`: name a checkout with NAM_CORE=DIR (its example_models are the models).
+# ASan for the malloc hooks the real-time watch uses.
+.PHONY: test-nam test-nam-tsan
+test-nam: $(BUILD)/test_nam_swap
+	./$(BUILD)/test_nam_swap
+
+$(BUILD)/test_nam_swap: hosts/tests/test_nam_swap.cpp hosts/jack/nam_amp.hpp $(HEADERS) tests/glitch.hpp tests/rt_watch.cpp tests/runner.cpp \
+                        $(SRC) $(NAM_OBJ) $(LOCKS) | $(BUILD)
+	@test -n '$(NAM_CORE)' || { echo 'test-nam: name a NAM Core checkout with NAM_CORE=DIR'; exit 2; }
+	$(CXX) -std=c++17 -O1 -g -fsanitize=address $(WARN) -Wno-unused-parameter -Iinclude -Iblocks/tuner/include $(RIG_NAM) \
+	  -DNAM_MODELS_DIR='"$(NAM_CORE)/example_models"' $(TEST_DEFS) -o $@ hosts/tests/test_nam_swap.cpp tests/rt_watch.cpp \
+	  tests/runner.cpp $(SRC) $(NAM_OBJ) $(LOCK_LINK)
+
+# The same file under ThreadSanitizer, NAM Core built with it as well, running only the thread stress.
+$(BUILD)/namtsan/%.o: $(NAM_CORE)/NAM/%.cpp
+	@mkdir -p $(@D)
+	$(CXX) $(NAM_FLAGS) -O1 -g -fsanitize=thread -c -o $@ $<
+
+NAM_TSAN_OBJ := $(patsubst $(NAM_CORE)/NAM/%.cpp,$(BUILD)/namtsan/%.o,$(NAM_SRC))
+
+test-nam-tsan: $(NAM_TSAN_OBJ) hosts/tests/test_nam_swap.cpp hosts/jack/nam_amp.hpp $(HEADERS) $(SRC) tests/glitch.hpp tests/rt_watch.cpp tests/runner.cpp | $(BUILD)
+	@test -n '$(NAM_CORE)' || { echo 'test-nam-tsan: name a NAM Core checkout with NAM_CORE=DIR'; exit 2; }
+	$(CXX) -std=c++17 -O1 -g -fsanitize=thread $(WARN) -Wno-unused-parameter -Iinclude -Iblocks/tuner/include $(RIG_NAM) \
+	  -DNAM_MODELS_DIR='"$(NAM_CORE)/example_models"' $(TEST_DEFS) -o $(BUILD)/test_nam_swap_tsan hosts/tests/test_nam_swap.cpp \
+	  tests/rt_watch.cpp tests/runner.cpp $(SRC) $(NAM_TSAN_OBJ) $(LOCK_LINK)
+	./$(BUILD)/test_nam_swap_tsan namSwapUnderAControlThreadStress
+
 # The browser demo (hosts/wasm): the tuner as WebAssembly in an AudioWorklet, a static folder
 # for any HTTPS host. Needs Emscripten on PATH (source <emsdk>/emsdk_env.sh); not part of `all`.
 # wasm-test scores the module in Node, then the page in headless Chrome against test tones.
