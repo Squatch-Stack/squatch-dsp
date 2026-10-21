@@ -3717,6 +3717,7 @@ Directory listing (tracked files):
 - include/squatch/dsp/blocks/crunch.hpp
 - include/squatch/dsp/blocks/eq.hpp
 - include/squatch/dsp/blocks/gate.hpp
+- include/squatch/dsp/blocks/gate_stage.hpp
 - include/squatch/dsp/blocks/hall.hpp
 - include/squatch/dsp/blocks/limiter.hpp
 - include/squatch/dsp/blocks/model_swap.hpp
@@ -3761,6 +3762,7 @@ Directory listing (tracked files):
 - src/eq.cpp
 - src/fft.cpp
 - src/gate.cpp
+- src/gate_stage.cpp
 - src/hall.cpp
 - src/limiter.cpp
 - src/model_swap.cpp
@@ -3833,6 +3835,7 @@ Directory listing (tracked files):
 - tests/test_crossfade.cpp
 - tests/test_eq.cpp
 - tests/test_gate.cpp
+- tests/test_gate_stage.cpp
 - tests/test_glitch.cpp
 - tests/test_interface.cpp
 - tests/test_limiter.cpp

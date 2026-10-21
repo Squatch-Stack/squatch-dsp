@@ -1,4 +1,4 @@
-# Written by tools/export-public from the squatch-dsp development tree at 8b7769d864f653e36b74054bbc6bcaeb6fed2cac (hosts/jack/nam_amp.hpp, hosts/tests/test_nam_swap.cpp, Makefile, THIRD_PARTY_NOTICES.md only).
+# Written by tools/export-public from the squatch-dsp development tree at 157cc40040ae668f3f3ceae7fea9f5f8f908b399 (include/squatch/dsp/blocks/gate_stage.hpp, src/gate_stage.cpp, tests/test_gate_stage.cpp only).
 # Do not edit these files here: change them upstream and export again (see the README).
 b1f7ed26a41e8cc4072e6ff565f628c0ee6445997f78e28eb3e06d67ca7a3bb8  .github/FUNDING.yml
 b2b506c683f241ac98479e8ae7656cc099f4bacfd3f1360b4330d7a666f72db5  .github/pull_request_template.md
@@ -263,6 +263,7 @@ ab6b88720dcc5f46c0624f8e5e4c441c43a3565237a389260ec174499288e517  include/squatc
 fd373abd997fd71d7b06f5fd68a151ca52a41801ea7b01bcef3d4771b33f3447  include/squatch/dsp/blocks/crunch.hpp
 b647af8d11f283bb1e6bb0090eb54fc33999635fcddb3d181a6fe82e3102e5ee  include/squatch/dsp/blocks/eq.hpp
 e5a856f3ff42970b3ea8debbac0b5a60944ef25f7b8d6641979b571ea0e0d46c  include/squatch/dsp/blocks/gate.hpp
+976eeb006aaaae5cf350e5b81d778de83a9985575598abc5cd3597b7d5aef516  include/squatch/dsp/blocks/gate_stage.hpp
 1c929aad06c5b768463fe27d319e818d392d8ee831beb9635c43f8d9ca4de237  include/squatch/dsp/blocks/hall.hpp
 42e4c6861964f01c784b805e188fcb39956e17ee346011e70549d8bc5773caba  include/squatch/dsp/blocks/limiter.hpp
 aae5c0c2f8aa4c2d471faad9903421698484829451a02f149e04509d34635d44  include/squatch/dsp/blocks/model_swap.hpp
@@ -308,6 +309,7 @@ e3336c73a8fe87f24b58f9be7d73543191df6d3cd14812b9b817572f86686300  src/crunch.cpp
 08414582637fe48578438db71cf06367ac65e505a0078f3e37d3183cb46269f5  src/eq.cpp
 c980a3b7e5e3bc9643eabe88becc4ae87a63f43e2a5831ade367141690ee6203  src/fft.cpp
 11e857fbc81844913529cb8d1f3e1f5481a8bf11a8b75ab5b7238eaf6e452c39  src/gate.cpp
+02354e2fd01d141e4c289ce39bcc24efec06e6706fac14f7aed9a2a8dee104df  src/gate_stage.cpp
 154643cc87bd8090b8d391eb4539cdf6ee54fcefd4cbc0572869477924ad799b  src/hall.cpp
 854465b8f9f0d63eb4ad942a2f25636d0bb05c6a241a463dff7467ca7694d457  src/limiter.cpp
 8a37af778e35dd0393a78f2f1b25e104af51ab082aa85203a09a1e4ab3e9014f  src/model_swap.cpp
@@ -373,6 +375,7 @@ ca83fc10ab45b3a19cbd5a4171d0514ff4ce9083228324edce46d586a4082f6f  tests/test_con
 ebfb14537808615492d146a1ec4fd0e14a111dbd6e515def69a85346fad514f7  tests/test_crossfade.cpp
 c8466da66780da5ba501794aed9e96e98e61737e7095860c42189d289e61c88f  tests/test_eq.cpp
 700536b759ef2e8e2424738d3478cfe1935f2d1e88bbb9a8942de47130267126  tests/test_gate.cpp
+74c0c513cbb48ca52ca2361494ac2c4d28bd23f6fcf740152aeeed4cd69b4340  tests/test_gate_stage.cpp
 148b389aeb0c8ef0df868c9019686ae4cb7b307b492327570f243b9ab2106486  tests/test_glitch.cpp
 496af24030c58f117ab29d4dc3e7d234a38037755b4a2a00908384b536b48708  tests/test_interface.cpp
 6dfe603b586ac8ce733f8b0aaf0849202d809028c9129b3e929d83547da01c78  tests/test_limiter.cpp
