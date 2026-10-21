@@ -5,6 +5,7 @@
 #include <squatch/dsp/blocks/tuner.hpp>
 
 #include "check.hpp"
+#include "glitch.hpp"
 #include "golden.hpp"
 #include "signals.hpp"
 
@@ -112,15 +113,26 @@ TEST(tunerBlockPublishesReadings) {
 
 TEST(tunerBlockMutesWithoutClicks) {
   TunerBlock& t = prepared();
-  const std::vector<float> x = sig::sine(196.0, 4800, kRate, 0.5);
+  // 100 ms of the note, then the mute: the oracles are the note itself and silence.
+  std::vector<float> x = sig::sine(196.0, 9600, kRate, 0.4);
+  const std::vector<float> hiss = sig::noise(9600, 0.1f, 4);  // the oracle's high-frequency rule needs some
+  for (std::size_t i = 0; i < x.size(); ++i) x[i] += hiss[i];
+  const std::vector<float> silence(x.size(), 0.0f);
   std::vector<float> y(x.size());
-  t.set(TunerBlock::Mute, 1.0f);
   t.process(x.data(), y.data(), 4800);
-  float biggestStep = 0.0f;
-  for (int i = 1; i < 480; ++i) biggestStep = std::fmax(biggestStep, std::fabs(y[i] - y[i - 1]));
-  CHECK(biggestStep < 0.05f, "a 5 ms ramp, not a click: biggest step %f", biggestStep);
-  CHECK(peakAbs(&y[240], 4800 - 240) == 0.0f, "silent once the ramp is done");
-  CHECK(t.readings().update() && t.readings().front().samples == 4800, "still tuning while muted");
+  t.set(TunerBlock::Mute, 1.0f);
+  t.process(x.data() + 4800, y.data() + 4800, 4800);
+  glitch::Options opt;
+    opt.dropoutMaxMs = 1e9;  // the muted half is meant to be black where the note still sounds in the oracle
+  const glitch::Report r = glitch::analyse(y, x, silence, {{4800, 4800 + 240}}, opt);
+  CHECK(r.ok && r.error.empty(), "a 5 ms ramp, not a click: %s%s", r.error.c_str(), r.findings.empty() ? "" : r.findings[0].c_str());
+  CHECK(peakAbs(&y[4800 + 240], 4800 - 240) == 0.0f, "silent once the ramp is done");
+  CHECK(t.readings().update() && t.readings().front().samples >= 9600, "still tuning while muted");
+  // Negative control: the same mute without the ramp is found.
+  const std::vector<float> tone = sig::sine(196.0, 9600, kRate, 0.5);  // pure, where a step towers over the signal's own curvature
+  std::vector<float> cut = tone;
+  for (std::size_t i = 4800; i < cut.size(); ++i) cut[i] = 0.0f;
+  CHECK(glitch::analyse(cut, tone, silence, {{4800, 4800 + 240}}, opt).failed("continuity"), "an unramped mute is a continuity finding");
 }
 
 TEST(tunerGolden) {

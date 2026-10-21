@@ -7,6 +7,7 @@
 #include <squatch/dsp/fft.hpp>
 
 #include "check.hpp"
+#include "glitch.hpp"
 #include "golden.hpp"
 #include "signals.hpp"
 
@@ -193,4 +194,30 @@ TEST(cabinetGolden) {
   x.insert(x.end(), tone.begin(), tone.end());
   const std::vector<float> y = run(cab, x, 64, 14);
   golden::check("cabinet", y, kGoldenRender, 1e-5);
+}
+
+TEST(cabinetLevelChangePassesTheGlitchOracle) {
+  static Cabinet cab;
+  const std::vector<float> h = response(480, 3);
+  Arena mem(gMem, sizeof gMem);
+  cab.configure(h.data(), 480);
+  cab.prepare(Setup{kRate, 64}, mem);
+  std::vector<float> x = sig::sine(196.0, 24000, kRate, 0.4);
+  const std::vector<float> hiss = sig::noise(24000, 0.1f, 6);
+  for (std::size_t i = 0; i < x.size(); ++i) x[i] += hiss[i];
+  const std::vector<float> loud = run(cab, x, 64, 5);  // the oracle before: 0 dB, and the cabinet is linear,
+  std::vector<float> soft(loud);                       // so the oracle after is the same signal at -6 dB
+  for (float& v : soft) v *= 0.501187f;
+  cab.reset();
+  std::vector<float> y(x.size());
+  cab.process(x.data(), y.data(), 6000);
+  cab.set(Cabinet::Level, -6.0f);
+  cab.process(x.data() + 6000, y.data() + 6000, static_cast<int>(x.size()) - 6000);
+  const glitch::Report r = glitch::analyse(y, loud, soft, {{6000, 6000 + 9600}});
+  CHECK(r.ok && r.error.empty(), "the level ramp is clean: %s%s", r.error.c_str(), r.findings.empty() ? "" : r.findings[0].c_str());
+  // Negative control: the same change without the smoother (a jump at the same place), on a pure tone.
+  const std::vector<float> tone = sig::sine(196.0, 24000, kRate, 0.5);
+  std::vector<float> a(tone), b(tone), c(tone);
+  for (std::size_t i = 0; i < tone.size(); ++i) b[i] *= 0.501187f, c[i] = i < 6000 ? a[i] : b[i];
+  CHECK(glitch::analyse(c, a, b, {{6000, 6000 + 9600}}).failed("continuity"), "an unsmoothed level jump is a continuity finding");
 }

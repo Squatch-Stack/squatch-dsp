@@ -13,6 +13,7 @@ Source repositories (links pinned to the commit adapted from):
 | What here | Adapted from |
 |---|---|
 | `include/squatch/dsp/crossfade.hpp`, `src/crossfade.cpp`, the cases in `tests/test_crossfade.cpp` (the correlation is a running estimate here, not the first block's: ours) | [crossfade.h](https://github.com/pedal-science/namchain/blob/e208bb869069b15a7331b452e03b7dc88726ffee/include/namchain/rt/crossfade.h), [crossfade.cpp](https://github.com/pedal-science/namchain/blob/e208bb869069b15a7331b452e03b7dc88726ffee/src/rt/crossfade.cpp), [test_crossfade.cpp](https://github.com/pedal-science/namchain/blob/e208bb869069b15a7331b452e03b7dc88726ffee/tests/test_crossfade.cpp) |
+| `tests/glitch.hpp`, `tests/test_glitch.cpp`; applied in `tests/test_cabinet.cpp`, `tests/test_tuner.cpp` | [glitch.h](https://github.com/pedal-science/namchain/blob/e208bb869069b15a7331b452e03b7dc88726ffee/include/namchain/glitch.h), [glitch.cpp](https://github.com/pedal-science/namchain/blob/e208bb869069b15a7331b452e03b7dc88726ffee/src/glitch/glitch.cpp), [test_glitch.cpp](https://github.com/pedal-science/namchain/blob/e208bb869069b15a7331b452e03b7dc88726ffee/tests/test_glitch.cpp) (the four rules and their defaults; rewritten, not copied) |
 
 ```text
 MIT License
