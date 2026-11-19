@@ -90,8 +90,8 @@ void feed(TunerRender& render, std::vector<float>& in, Shape shape, std::vector<
   const auto frames = static_cast<uint32_t>(in.size() / shape.in);
   for (uint32_t at = 0; at < frames; at += shape.block) {
     const uint32_t n = std::min(shape.block, frames - at);
-    Chunk ic{shape.in, static_cast<uint32_t>(n * shape.in * sizeof(float)), in.data() + static_cast<size_t>(at) * shape.in};
-    Chunk oc{shape.out, static_cast<uint32_t>(n * shape.out * sizeof(float)), out ? out->data() + static_cast<size_t>(at) * shape.out : nullptr};
+    Chunk ic{shape.in, static_cast<uint32_t>(static_cast<size_t>(n) * shape.in * sizeof(float)), in.data() + static_cast<size_t>(at) * shape.in};
+    Chunk oc{shape.out, static_cast<uint32_t>(static_cast<size_t>(n) * shape.out * sizeof(float)), out ? out->data() + static_cast<size_t>(at) * shape.out : nullptr};
     render.render({&ic, 1}, {out ? &oc : nullptr, out ? 1u : 0u}, 1000 + at);
   }
 }
