@@ -1,4 +1,4 @@
-# Written by tools/export-public from the squatch-dsp development tree at 157cc40040ae668f3f3ceae7fea9f5f8f908b399 (include/squatch/dsp/blocks/gate_stage.hpp, src/gate_stage.cpp, tests/test_gate_stage.cpp only).
+# Written by tools/export-public from the squatch-dsp development tree at 2ef5a4fa751bc0e90e09214400d429cfcdf65bf5 (hosts/daisy/seed3-nam/main.cpp, hosts/tests/test_host_audio.cpp, tests/test_amp_fx.cpp only).
 # Do not edit these files here: change them upstream and export again (see the README).
 b1f7ed26a41e8cc4072e6ff565f628c0ee6445997f78e28eb3e06d67ca7a3bb8  .github/FUNDING.yml
 b2b506c683f241ac98479e8ae7656cc099f4bacfd3f1360b4330d7a666f72db5  .github/pull_request_template.md
@@ -180,7 +180,7 @@ caf034d2de535577cf51594d8a0f003c77b2ef4c4f4825bdbd7005c631b062e3  hosts/daisy/fa
 986e1641d293293c1de2cb1b554024472523b3b62b2265f8e189e5eeab06e932  hosts/daisy/patches/0002-linker-scripts-drop-malformed-DISCARD.patch
 dc1bec86bd54d4509cbc3eff1d87f7e69a882633f3e8fb2d195b2e0866d5b5de  hosts/daisy/seed3-chain/main.cpp
 502b186ec01a6d073d44477357703dc0b822be36f29fe97b84f13f66f8f7d217  hosts/daisy/seed3-latency/main.cpp
-d1b9007180255ccf3e9cb0438aa7b5a11e171dbc2a576e2f42426849ec6cf96b  hosts/daisy/seed3-nam/main.cpp
+97cfda1a35d97d5db460a8630405684023a9efa76dc2479e37dcc8b2d5d2b1a5  hosts/daisy/seed3-nam/main.cpp
 7955c30031d95e6ee64327c7ed62517e0c204b1b871fe33e477dc0607f8e9e83  hosts/daisy/seed3-notegen/main.cpp
 1fa276ee7ae1566ecb67b25aad35828fb059f206f341b321284e3ca971fbc4e8  hosts/daisy/seed3-passthrough/main.cpp
 88d5e0db271597abb2c3a3527a2d2886e718fb8fcad67cd3db1ae85dde4d0308  hosts/daisy/tests/test_a2lite.cpp
@@ -228,7 +228,7 @@ fa334fd6e8481a3c8d6d6d9fd8b73e383411a19aad6ac3a2efacb3c4062b0076  hosts/render/r
 4f190f48264fc9458dd3ef0f19f29807e187940cd3e2f42c6afc301f05980186  hosts/render/tuner_csv.cpp
 4b2635e669e6c84acbd6d0afcacea9631f63d5a9889df5430702dca32202e111  hosts/render/tuner_csv_diff.py
 f2452f4804161a85f9c5352b235c28a6fc6634359327c572ed7af55bcaa8123e  hosts/tests/test_cab_swap_owns_taps.cpp
-b6cc7da0e324458d7dbfa49f05b29d5d56b3ef9c9eaf0e6f4877fc6227dbe480  hosts/tests/test_host_audio.cpp
+1a09177a12b33926ebc06361436777a03f5d718f5a589ac3aaf5bad120ed55d7  hosts/tests/test_host_audio.cpp
 8559c84df869cdaa5f4200d8503018fa9ba54208a164f9313bf2e3523676e17b  hosts/tests/test_hosts.cpp
 9981eace294569ae0a7e20f47176af2abdbc46f492fd2f73c319530534a2974f  hosts/tests/test_nam_swap.cpp
 0df1cb5db90ebb2165cb5b56e97c3525d835a66c2a09e4ea670bb22c4f6943e9  hosts/tests/test_rig.cpp
@@ -365,7 +365,7 @@ b3ab5fb058d1a9a3cb227752414a5ee89224e5d35774dcac66d010662723f3da  tests/lockcoun
 6aa50c2665fd9f978838f97bf3d6a8404a215637b91c810900e6b41452e12665  tests/rt_watch.hpp
 ad3db5f05d2f2fbbd3620b4b66836b61cbd4180eef4c95a2dc306b1b408d2e76  tests/runner.cpp
 6499ce8f3bb69a01537476fafe62f24dcec2267a95f2b4e11396520f90a70138  tests/signals.hpp
-6362ae4d6eb7fe81fdd3bdf46db1cd07d07281b353ac11fe44af5b692e90148c  tests/test_amp_fx.cpp
+a9a9d7b0883ecfc5ff92dfb385895db0d817aafc185612e6d96b90e80f1c45b6  tests/test_amp_fx.cpp
 047804137edc66a846fcc54db1dc1cbcfcb605d52b9d5d89d2af34929d1be0ed  tests/test_bench_protocol.cpp
 1ab96f276dde148a93b1b2f022fd6007365bcf28b423e697ee43df6bcdfdc2e2  tests/test_bypass.cpp
 f5fdd60818153964af29c669096096e3195aea13e5a859fba1dac20690727aed  tests/test_cabinet.cpp

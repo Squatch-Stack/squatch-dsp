@@ -129,7 +129,7 @@ TEST(hallDecaysAtItsDecayTime) {
   const std::vector<float> out = run(h, in);
   const auto rms = [&](double a, double b) {
     double e = 0.0;
-    for (int i = static_cast<int>(a * 48000); i < static_cast<int>(b * 48000); ++i) e += out[i] * out[i];
+    for (int i = static_cast<int>(a * 48000); i < static_cast<int>(b * 48000); ++i) e += static_cast<double>(out[i]) * out[i];
     return 10.0 * std::log10(e / ((b - a) * 48000) + 1e-30);
   };
   const double drop = rms(0.15, 0.25) - rms(0.65, 0.75);  // over 0.5 s: 30 dB for a 1 s RT60

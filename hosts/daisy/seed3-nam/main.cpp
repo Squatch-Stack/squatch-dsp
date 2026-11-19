@@ -218,9 +218,12 @@ void dumpRecording() {
     char line[170];
     int n = std::snprintf(line, sizeof line, "D %d", i);
     for (int k = 0; k < 8 && i + k < kRecord; ++k) {
+      if (n < 0 || static_cast<std::size_t>(n) >= sizeof line) break;  // a short write: never step past the buffer
       Bits a{recIn[i + k]}, b{recOut[i + k]};
-      n += std::snprintf(line + n, sizeof line - static_cast<std::size_t>(n), " %08lx:%08lx", static_cast<unsigned long>(a.u),
-                         static_cast<unsigned long>(b.u));
+      const int w = std::snprintf(line + n, sizeof line - static_cast<std::size_t>(n), " %08lx:%08lx", static_cast<unsigned long>(a.u),
+                                  static_cast<unsigned long>(b.u));
+      if (w < 0) break;
+      n += w;
     }
     serial.line("%s", line);
   }
